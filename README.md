@@ -1,2 +1,2 @@
 # CityGuide
-This is one version of the CityGudie
+This is Version 1 of the CityGuide android app
