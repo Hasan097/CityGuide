@@ -68,9 +68,39 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     e.printStackTrace();
                 }
                 break;
+/*<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>POST to DB</title>
+	</head>
+	<body>
+		<form method="POST" action="http://wh-308-3922mm.dyn.wichita.edu:5000/beacon">
+			<label for="beaconid">Beacon ID<br></label>
+			<input type="text" id="beaconid" name="beaconid">
+			<br><br>
+
+			<label for="auth">Authorization<br></label>
+			<input type="text" id="auth" name="auth">
+			<br><br>
+			<button>POST for file</button>
+		</form>
+		<br><br>
+		<form method="POST" action="http://wh-308-3922mm.dyn.wichita.edu:5000/data">
+			<label for="beaconid">Beacon ID<br></label>
+			<input type="text" id="beaconid" name="beaconid">
+			<br><br>
+
+			<label for="auth">Authorization<br></label>
+			<input type="text" id="auth" name="auth">
+			<br><br>
+			<button>POST for data</button>
+		</form>
+</html>
+
+<!--auth eW7jYaEz7mnx0rrM       */
             case "beacons":
                 try {//"http://smartcityguide.org/mysql/beacons.php"
-                    URL url = new URL("https://smartcitygude.000webhostapp.com/beacons.php");
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
 
                     String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username.trim(), "UTF-8") + "&"
                             + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8")+"&"
