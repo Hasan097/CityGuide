@@ -7,7 +7,10 @@ import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -29,6 +32,7 @@ import java.util.HashMap;
 
 public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
+    private static final String TAG = "DatabaseLog";
     private String typeOfAction = "";
     private File subFolder;
 
@@ -45,29 +49,29 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
     protected String doInBackground(String... params) {
 
         typeOfAction = params[0];
-        String username = params[1];
-        String password = params[2];
+        String beaconid = params[1];
+        String auth = params[2];
         String namespace = params[3];
         String locationName  = params[4];
 
 
         switch (typeOfAction){
-            case "login":
-                try {//"http://smartcityguide.org/mysql/login.php"
-                    URL url = new URL("https://smartcitygude.000webhostapp.com/login.php");
-
-                    String post_data = URLEncoder.encode("username", "UTF-8")+"="
-                            + URLEncoder.encode(username.trim(), "UTF-8") + "&"
-                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8");
-
-                    return serverConnector(url,post_data);
-
-                } catch (MalformedURLException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                break;
+//            case "login":
+//                try {//"http://smartcityguide.org/mysql/login.php"
+//                    URL url = new URL("https://smartcitygude.000webhostapp.com/login.php");
+//
+//                    String post_data = URLEncoder.encode("username", "UTF-8")+"="
+//                            + URLEncoder.encode(username.trim(), "UTF-8") + "&"
+//                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8");
+//
+//                    return serverConnector(url,post_data);
+//
+//                } catch (MalformedURLException e) {
+//                    e.printStackTrace();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//                break;
 /*<!DOCTYPE html>
 <html lang="en">
 	<head>
@@ -101,11 +105,10 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
             case "beacons":
                 try {//"http://smartcityguide.org/mysql/beacons.php"
                     URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
-
-                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username.trim(), "UTF-8") + "&"
-                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8")+"&"
-                            + URLEncoder.encode("namespace", "UTF-8")+"="+URLEncoder.encode(namespace.trim(), "UTF-8");
-
+                    String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
+                            //+"&"+ URLEncoder.encode("namespace", "UTF-8");
+                            //+"=" +URLEncoder.encode(namespace.trim(), "UTF-8");
                     return serverConnector(url,post_data);
                 } catch (MalformedURLException e) {
                     e.printStackTrace();
@@ -114,12 +117,13 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                 }
                 break;
             case "buildingInquiry":
-//                Log.d("MyErrorDetector", "jsonConverter: *******"+locationName);
                 try {//"http://smartcityguide.org/mysql/location.php"
-                    URL url = new URL("https://smartcitygude.000webhostapp.com/location.php");
-                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username, "UTF-8") + "&"
-                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password, "UTF-8")+"&"
-                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName, "UTF-8");
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/data");
+                    String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
+//                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username, "UTF-8") + "&"
+//                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password, "UTF-8")+"&"
+//                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName, "UTF-8");
                     return serverConnector(url,post_data);
 
                 } catch (MalformedURLException e) {
@@ -128,23 +132,23 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     e.printStackTrace();
                 }
                 break;
-            case "outdoorInquiry":
-
-                try {//"http://smartcityguide.org/mysql/outdoor.php"
-                    URL url = new URL("https://smartcitygude.000webhostapp.com/outdoor.php");
-//                    Log.d("MyErrorDetector", "doInBackground: "+username+", "+password+", "+locationName);
-
-                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username.trim(), "UTF-8") + "&"
-                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8")+"&"
-                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName.trim(), "UTF-8");
-
-                    return serverConnector(url,post_data);
-                } catch (MalformedURLException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                break;
+//            case "outdoorInquiry":
+//f
+//                try {//"http://smartcityguide.org/mysql/outdoor.php"
+//                    URL url = new URL("https://smartcitygude.000webhostapp.com/outdoor.php");
+////                    Log.d("MyErrorDetector", "doInBackground: "+username+", "+password+", "+locationName);
+//
+//                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username.trim(), "UTF-8") + "&"
+//                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password.trim(), "UTF-8")+"&"
+//                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName.trim(), "UTF-8");
+//
+//                    return serverConnector(url,post_data);
+//                } catch (MalformedURLException e) {
+//                    e.printStackTrace();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//                break;
         }
 
         return null;
@@ -152,33 +156,33 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
     private String serverConnector(URL url,String post_data){
             try {
-            HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
-            httpURLConnection.setRequestMethod("POST");
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setDoInput(true);
-            OutputStream outputStream = httpURLConnection.getOutputStream();
-            BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
+                HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setRequestMethod("POST");
+                httpURLConnection.setDoOutput(true);
+                httpURLConnection.setDoInput(true);
+                OutputStream outputStream = new BufferedOutputStream(httpURLConnection.getOutputStream());
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
 
-            bufferedWriter.write(post_data);
-            bufferedWriter.flush();
-            bufferedWriter.close();
-            outputStream.close();
-            InputStream inputStream = httpURLConnection.getInputStream();
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream,"iso-8859-1"));
-            StringBuilder result = new StringBuilder();
-            String line;
-            while((line = bufferedReader.readLine())!=null){
-                result.append(line);
+                bufferedWriter.write(post_data);
+                bufferedWriter.flush();
+                bufferedWriter.close();
+                outputStream.close();
+                InputStream inputStream = new BufferedInputStream(httpURLConnection.getInputStream());
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream,"iso-8859-1"));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while((line = bufferedReader.readLine())!=null){
+                    result.append(line);
+                }
+                bufferedReader.close();
+                inputStream.close();
+                httpURLConnection.disconnect();
+                return result.toString();
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            bufferedReader.close();
-            inputStream.close();
-            httpURLConnection.disconnect();
-            return result.toString();
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         return null;
     }
 
@@ -189,8 +193,6 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
     @Override
     protected void onPostExecute(String result) {
-
-//        Log.d("MyErrorDetector", "onPostExecute: "+result);
         if (result!=null)
             delegate.serverInquiry(jsonConverter(result));
     }
@@ -201,29 +203,28 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
     }
 
     private ArrayList<HashMap<String,String>> jsonConverter(String jsonStr) {
-//        Log.d("MyErrorDetector", "jsonConverter: sa"+jsonStr+typeOfAction);
         ArrayList<HashMap<String,String>> informationList = new ArrayList<>();
         HashMap<String, String> information;
         try {
 
-
-            JSONArray jsonArray = new JSONArray(jsonStr);
+//            JSONArray jsonArray = new JSONArray(jsonStr);
+            JSONObject jsonObject = new JSONObject(jsonStr);
+            JSONArray jsonArray = jsonObject.getJSONArray("recordset");
 
             switch(typeOfAction){
                 case "buildingInquiry":
                     for(int i = 0; i < jsonArray.length(); i++)
                     {
-
                         information = new HashMap<>();
                         information.put("inquiryMode", "buildingInquiry");
-                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("id")));
+                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("beacon_id")));
                         information.put("node", String.valueOf(jsonArray.getJSONObject(i).getInt("node")));
                         information.put("numsens", String.valueOf(jsonArray.getJSONObject(i).getInt("numsens")));
                         information.put("locname", String.valueOf(jsonArray.getJSONObject(i).getString("locname")));
                         information.put("threshold", String.valueOf(jsonArray.getJSONObject(i).getInt("threshold")));
                         information.put("direction", String.valueOf(jsonArray.getJSONObject(i).getInt("direction")));
                         information.put("other", String.valueOf(jsonArray.getJSONObject(i).getString("other")));
-                        information.put("level", String.valueOf(jsonArray.getJSONObject(i).getInt("level")));
+                        information.put("level", String.valueOf(jsonArray.getJSONObject(i).getInt("_level")));
                         information.put("bnorth", String.valueOf(jsonArray.getJSONObject(i).getInt("bnorth")));
                         information.put("ndist", String.valueOf(jsonArray.getJSONObject(i).getInt("ndist")));
                         information.put("bsouth", String.valueOf(jsonArray.getJSONObject(i).getInt("bsouth")));
@@ -240,12 +241,11 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                         information.put("seastdist", String.valueOf(jsonArray.getJSONObject(i).getInt("seastdist")));
                         information.put("bswest", String.valueOf(jsonArray.getJSONObject(i).getInt("bswest")));
                         information.put("swestdist", String.valueOf(jsonArray.getJSONObject(i).getInt("swestdist")));
-                        information.put("emgmode", String.valueOf(jsonArray.getJSONObject(i).getInt("emgmode")));
-                        information.put("emgtype", String.valueOf(jsonArray.getJSONObject(i).getInt("emgtype")));
-                        information.put("safenode", String.valueOf(jsonArray.getJSONObject(i).getInt("safenode")));
+//                        information.put("emgmode", String.valueOf(jsonArray.getJSONObject(i).getInt("emgmode")));
+//                        information.put("emgtype", String.valueOf(jsonArray.getJSONObject(i).getInt("emgtype")));
+//                        information.put("safenode", String.valueOf(jsonArray.getJSONObject(i).getInt("safenode")));
 
                         informationList.add(information);
-
                     }
                 break;
                 case "beacons":
@@ -258,8 +258,9 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     if (!subFolder.exists())
                         subFolder.mkdirs();
 
-                    if(!file.exists())
+                    if(!file.exists()) {
                         file.createNewFile();
+                    }
 
                     outputStream = new FileOutputStream(file);
 
@@ -268,10 +269,13 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     stringBuilder = new StringBuilder(String.valueOf(0)+", "+formattedDate);
                     outputStream.write(stringBuilder.toString().getBytes());
                     outputStream.write('\n');
-
                     for(int i = 0; i < jsonArray.length(); i++)
                     {
-                        stringBuilder = new StringBuilder(String.valueOf(jsonArray.getJSONObject(i).getInt("id"))+", "+jsonArray.getJSONObject(i).getString("location"));
+                        stringBuilder = new StringBuilder(
+                                String.valueOf(jsonArray.getJSONObject(i).getInt("beacon_id"))
+                                + ", "+
+                                jsonArray.getJSONObject(i).getString("locname")
+                        );
                         // write in file that was already created;
                         try {
                             outputStream.write(stringBuilder.toString().getBytes());
@@ -283,35 +287,35 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     }
                     outputStream.close();
                     break;
-                case "login":
-                    for(int i = 0; i < jsonArray.length(); i++)
-                    {
-                        information = new HashMap<>();
-                        information.put("inquiryMode", "login");
-                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("id")));
-                        information.put("name", jsonArray.getJSONObject(i).getString("name"));
-                        informationList.add(information);
-                    }
-                    break;
-                case "outdoorInquiry":
-
-                    for(int i = 0; i < jsonArray.length(); i++)
-                    {
-//                        Log.d("MyErrorDetector", "jsonConverter: "+String.valueOf(jsonArray.getJSONObject(i).getInt("id"))+", "+String.valueOf(jsonArray.getJSONObject(i).getDouble("latitude"))+
-//                        ", "+String.valueOf(jsonArray.getJSONObject(i).getDouble("longitude"))+", "+String.valueOf(jsonArray.getJSONObject(i).getString("other"))+", "+
-//                                String.valueOf(jsonArray.getJSONObject(i).getInt("direction")));
-                        information = new HashMap<>();
-                        information.put("inquiryMode", "outdoorInquiry");
-                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("id")));
-                        information.put("latitude", String.valueOf(jsonArray.getJSONObject(i).getDouble("latitude")));
-                        information.put("longitude", String.valueOf(jsonArray.getJSONObject(i).getDouble("longitude")));
-                        information.put("other", String.valueOf(jsonArray.getJSONObject(i).getString("other")));
-                        information.put("direction", String.valueOf(jsonArray.getJSONObject(i).getInt("direction")));
-
-                        informationList.add(information);
-                    }
-
-                    break;
+//                case "login":
+//                    for(int i = 0; i < jsonArray.length(); i++)
+//                    {
+//                        information = new HashMap<>();
+//                        information.put("inquiryMode", "login");
+//                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("id")));
+//                        information.put("name", jsonArray.getJSONObject(i).getString("name"));
+//                        informationList.add(information);
+//                    }
+//                    break;
+//                case "outdoorInquiry":
+//
+//                    for(int i = 0; i < jsonArray.length(); i++)
+//                    {
+////                        Log.d("MyErrorDetector", "jsonConverter: "+String.valueOf(jsonArray.getJSONObject(i).getInt("id"))+", "+String.valueOf(jsonArray.getJSONObject(i).getDouble("latitude"))+
+////                        ", "+String.valueOf(jsonArray.getJSONObject(i).getDouble("longitude"))+", "+String.valueOf(jsonArray.getJSONObject(i).getString("other"))+", "+
+////                                String.valueOf(jsonArray.getJSONObject(i).getInt("direction")));
+//                        information = new HashMap<>();
+//                        information.put("inquiryMode", "outdoorInquiry");
+//                        information.put("id", String.valueOf(jsonArray.getJSONObject(i).getInt("id")));
+//                        information.put("latitude", String.valueOf(jsonArray.getJSONObject(i).getDouble("latitude")));
+//                        information.put("longitude", String.valueOf(jsonArray.getJSONObject(i).getDouble("longitude")));
+//                        information.put("other", String.valueOf(jsonArray.getJSONObject(i).getString("other")));
+//                        information.put("direction", String.valueOf(jsonArray.getJSONObject(i).getInt("direction")));
+//
+//                        informationList.add(information);
+//                    }
+//
+//                    break;
             }
 
         } catch (JSONException e) {
@@ -323,7 +327,7 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
         }
 
 //        for(int i=0;i<informationList.size();i++)
-//            Log.d("MyErrorDetector", "jsonConverter: "+informationList.get(i));
+//            Log.d("Baklava", "jsonConverter: "+informationList.get(i));
         return informationList;
 
     }
