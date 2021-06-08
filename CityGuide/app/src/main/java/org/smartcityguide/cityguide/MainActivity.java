@@ -63,9 +63,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements AsyncResponse, RequestResponse, SensorEventListener, BLEResponse {
 
@@ -97,9 +99,11 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean speakFlag;
     private StringBuilder[][] buildings_info;
     private int[][] connections;
-    private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<>();
+    private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<HashMap<Integer, StringBuilder>>();
     private StringBuilder beacon_location = new StringBuilder();
     private boolean beacon_download_flag = false;
+    private int stop_multiple = 0;
+    private int inquiry_counter = 0;
     private RoutFinding rf = new RoutFinding();
     private String routeSrcDst;
     private TextToSpeech textToSpeech=null;
@@ -444,7 +448,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 boolean firstFlag = false, secondFlag = false;
                 ArrayList<Integer> tempArray = new ArrayList<>();
                 if (beacon_RSSI > -100 && !searchingStatus[2] && buildings_info != null) {
-
                     if (buildings_info.length > 0) {
                         for (int i = 0; i < buildings_info.length; i++) {
                             if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
@@ -534,10 +537,10 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     talk.start("Nothing was found!");
                 } else if (searchingStatus[2] && !searchingStatus[1]) {
                     talk.start("Please choose one of the options from indoor locations!");
-                    listViewToShow(getIndoorLocationsToGo(),2, 1);
+                    listViewToShow(getIndoorLocationsToGo(),2, 10);
                 } else if (!searchingStatus[2] && searchingStatus[1]) {
                     talk.start("Please choose one of the options from outdoor locations!");
-                    listViewToShow(getOutdoorLocationsToGo(),3, 1);
+                    listViewToShow(getOutdoorLocationsToGo(),3, 10);
 
                 } else {
                     final ArrayList<HashMap<String, String>> finalResult = new ArrayList<>();
@@ -598,18 +601,26 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         beacon_RSSI = BLE_RSSI;
         beacon_id = beaconID;
         beacon_namespace = beaconNameSpace;
-        Log.d("Baklava", "beaconid: " + beacon_id);
         if (!beacon_download_flag) {
             Log.d("Beacon_download_flag", "beaconSighting: " + beacon_id + " , RSSI:" + beacon_RSSI + "NameSpace: " + beacon_namespace);
             loginFunc("beacons", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
 //        else if (beacon_location.toString().compareTo("outdoor") == 0 && inquiry_flag) {
 //            loginFunc("outdoorInquiry", new StringBuilder("admin"), new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_namespace.toString().toLowerCase().trim());
 //            inquiry_flag = false;
-//        }
+//
         }
         else if (inquiry_flag && beacon_location.toString().compareTo("outdoor") != 0) {
-            loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_location.toString());
-            inquiry_flag = false;
+            for(int i = 0; i < beacons_array.size() ; i++){
+                if(beacons_array.get(i).containsKey(Integer.parseInt(String.valueOf(beacon_id)))) {
+                    loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_location.toString());
+                    beacons_array.remove(i);
+                }
+                else
+                    inquiry_counter++;
+            }
+            if(inquiry_counter > 10) {
+                inquiry_flag = false;
+            }
         }
         lastReceivedTimeStamp = System.currentTimeMillis();
 
@@ -778,7 +789,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             if (nodeDeciderArray[beaconNumber][WMA_OPTION] == WMA_OPTION) {
                 int triggerCounter = 0;
                 for (int i = 0; i < WMA_OPTION; i++) {
-                    if (nodeDeciderArray[beaconNumber][i] > connections[beaconNumber][1])
+                    if (Math.abs(nodeDeciderArray[beaconNumber][i]) > Math.abs(connections[beaconNumber][1]))       // Unsure if abs was necessary
                         triggerCounter++;
                 }
                 System.arraycopy(nodeDeciderArray[beaconNumber], 1, nodeDeciderArray[beaconNumber], 0, WMA_OPTION - 1);
@@ -806,12 +817,26 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             br = new BufferedReader(new FileReader(file));
 
             while ((lineReader = br.readLine()) != null) {
-
+                int checker = 0;
                 String[] splitter = lineReader.split(",");
                 beacons_array_Hash = new HashMap<>();
                 beacons_array_Hash.put(Integer.valueOf(splitter[0]), new StringBuilder(splitter[1]));
-                beacons_array.add(beacons_array_Hash);
-
+                if(beacons_array.size() == 0){
+                    beacons_array.add(beacons_array_Hash);
+                }
+                else {
+                    for (int i = 0; i < beacons_array.size(); i++) {
+                        if (beacons_array.get(i).keySet().equals(beacons_array_Hash.keySet())) {
+                            checker = 1;
+                        }
+                        if(checker == 1 && i == (beacons_array.size() - 1)){
+                            stop_multiple++;
+                        }
+                    }
+                    if(checker == 0){
+                        beacons_array.add(beacons_array_Hash);
+                    }
+                }
             }
             br.close();
         } catch (IOException e) {
@@ -827,13 +852,14 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
         beacon_location = new StringBuilder(beacon_location.toString().trim().toLowerCase());
 
-        beacon_download_flag = true;
+        if(stop_multiple > 7)
+            beacon_download_flag = true;
+
         inquiry_flag = true;
 
     }
 
     private void indoorWayfinding() {
-
         if (!indoorInitialization && number_Of_Sensors==0){
             number_Of_Sensors = Integer.valueOf(buildings_info[Integer.valueOf(loop_number)][3].toString());
             if(number_Of_Sensors!=0){
@@ -852,7 +878,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             }
         }
 
-        if (beacon_RSSI > FIRST_THRESHOLD && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
+        Log.d("beans", "beacon info: " + beacon_id + " " + beacon_RSSI);
+        if (beacon_RSSI > -110 && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
 
             lastSavedTimeBuffer = lastReceivedTimeStamp;
             if (nodeDeciderArray[beaconNumber][WMA_OPTION] < WMA_OPTION) {
@@ -1044,6 +1071,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         }
 
         if (reachFlag) {
+            Log.d("beans", "indoorWayfinding: flag reached");
             indoorWayfindingFlag=false;
             indoorInitialization=false;
         }
@@ -1089,9 +1117,19 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 case "outdoorInquiry":
                     break;
                 case "buildingInquiry":
-                    buildingSensorsMap = new String[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][2];
-                    connections = new int[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][24];
-                    buildings_info = new StringBuilder[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][6];
+                    if(buildingSensorsMap == null)
+                        buildingSensorsMap = new String[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][2];
+                    if(connections == null)
+                        connections = new int[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][24];
+                    if(buildings_info == null) {
+                        buildings_info = new StringBuilder[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][6];
+                    }
+                    else {
+                        for (int i = 0; i < buildings_info.length; i++){
+                            if(buildings_info[i][0] != null)
+                                Log.d("valueUpdate", "building[" + i + "]" + "[0] = " + buildings_info[i][0]);
+                        }
+                    }
                     num = Integer.parseInt(serverInquiryResult.get(0).get("numsens"));
                     for (int i = 0; i < serverInquiryResult.size(); i++) {
                         buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = new StringBuilder(serverInquiryResult.get(i).get("id"));
@@ -1110,7 +1148,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 //                        }
 
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = Integer.valueOf(serverInquiryResult.get(i).get("node"));
-                        connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = Integer.valueOf(serverInquiryResult.get(i).get("threshold"));
+                        connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = -(Integer.valueOf(serverInquiryResult.get(i).get("threshold")));
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][2] = Integer.valueOf(serverInquiryResult.get(i).get("direction"));
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][3] = Integer.valueOf(serverInquiryResult.get(i).get("level"));
                         //North
@@ -1164,37 +1202,39 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
                         buildingSensorsMap[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1].toString();
                         buildingSensorsMap[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = String.valueOf(connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0]);
-//                        Log.d("Baklava", Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][6]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][7]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][8]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][9]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][10]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][11]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][12]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][13]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][14]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][15]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][16]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][17]+", "+
-//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][18]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][19]);
+
+
+                        Log.d("beans", Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][6]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][7]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][8]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][9]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][10]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][11]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][12]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][13]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][14]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][15]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][16]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][17]+", "+
+                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][18]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][19]);
                     }
 
-//                    StringBuilder mystrnodesrc = new StringBuilder("s = [");
-//                    StringBuilder mystrnodedes = new StringBuilder("t = [");
-//                    StringBuilder mystrweight = new StringBuilder("weights = [");
-//                    StringBuilder mystrname = new StringBuilder("names = {");
-//                    for(int k=0;k<num;k++){
-//                        for(int j=4;j<20;j=j+2){
-//                            if(connections[k][j]!=-10 && (connections[k][j]+1)>(k+1)){
-//                                mystrnodesrc.append(k+1).append(" ");
-//                                mystrnodedes.append(connections[k][j]+1).append(" ");
-//                                mystrweight.append(connections[k][j+1]).append(" ");
-//
-//                            }
-//                        }
-//                    }
-//                    for(int k=0;k<num-1;k++) {
-//                        mystrname.append('\'').append(k).append('\'').append(" ");
-//                    }
-//                    mystrnodesrc.append("];");
-//                    mystrnodedes.append("];");
-//                    mystrweight.append("];");
-//                    mystrname.append("};");
+                    StringBuilder mystrnodesrc = new StringBuilder("s = [");
+                    StringBuilder mystrnodedes = new StringBuilder("t = [");
+                    StringBuilder mystrweight = new StringBuilder("weights = [");
+                    StringBuilder mystrname = new StringBuilder("names = {");
+                    for(int k=0;k<num;k++){
+                        for(int j=4;j<20;j=j+2){
+                            if(connections[k][j]!=-10 && (connections[k][j]+1)>(k+1)){
+                                mystrnodesrc.append(k+1).append(" ");
+                                mystrnodedes.append(connections[k][j]+1).append(" ");
+                                mystrweight.append(connections[k][j+1]).append(" ");
+
+                            }
+                        }
+                    }
+                    for(int k=0;k<num-1;k++) {
+                        mystrname.append('\'').append(k).append('\'').append(" ");
+                    }
+                    mystrnodesrc.append("];");
+                    mystrnodedes.append("];");
+                    mystrweight.append("];");
+                    mystrname.append("};");
 //                    Log.d(TAG, "serverInquiry: "+mystrnodesrc+mystrnodedes+mystrweight+mystrname+"G = graph(s,t,weights,names);"+"plot(G,'EdgeLabel',G.Edges.Weight);");
 //                    Log.d(TAG, "serverInquiry: "+mystrnodedes);
 //                    Log.d(TAG, "serverInquiry: "+mystrweight);
@@ -1202,7 +1242,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 //                    Log.d(TAG, "serverInquiry: "+"G = graph(s,t,weights,names)");
 //                    Log.d(TAG, "serverInquiry: "+"plot(G,'EdgeLabel',G.Edges.Weight)");
 
-                    StringBuilder mystrweight = new StringBuilder("weights = [");
+                    mystrweight = new StringBuilder("weights = [");
                     StringBuilder nodeName = new StringBuilder("nodes = [");
                     StringBuilder xSiteSRC = new StringBuilder("xs = [");
                     StringBuilder ySiteSRC = new StringBuilder("ys = [");
@@ -1227,12 +1267,12 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                             }
                         }
                     }
-                    Log.d(TAG, " "+xSiteSRC.append("];"));
-                    Log.d(TAG, " "+ySiteSRC.append("];"));
-                    Log.d(TAG, " "+xSiteDES.append("];"));
-                    Log.d(TAG, " "+ySiteDES.append("];"));
-                    Log.d(TAG, " "+nodeName.append("];"));
-                    Log.d(TAG, " "+mystrweight.append("];"));
+//                    Log.d(TAG, " "+xSiteSRC.append("];"));
+//                    Log.d(TAG, " "+ySiteSRC.append("];"));
+//                    Log.d(TAG, " "+xSiteDES.append("];"));
+//                    Log.d(TAG, " "+ySiteDES.append("];"));
+//                    Log.d(TAG, " "+nodeName.append("];"));
+//                    Log.d(TAG, " "+mystrweight.append("];"));
 
 //                    if(Integer.valueOf(buildings_info[beaconNumber][4].toString())>0){
 //                        EVACUATION_FLAG=true;
@@ -1306,7 +1346,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 case "login":
                     break;
                     }
-            } else if (!beacon_download_flag) {
+            }
+        else if (!beacon_download_flag) {
                 readFile();
             }
         }
@@ -1650,9 +1691,10 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
         Bundle bundle = new Bundle();
         ArrayList<String> myListExample = new ArrayList<>();
-        for(int i=0;i<noResultToShow;i++)
-            myListExample.add(result.get(i).get("description"));
-
+        for(int i=0;i<result.size(); i++) {
+            if(result.get(i).get("description") != null)
+                myListExample.add(result.get(i).get("description"));
+        }
         myListExample.add(String.valueOf(nextStep));
 
         bundle.putStringArrayList("dataFromMainActivity",myListExample);

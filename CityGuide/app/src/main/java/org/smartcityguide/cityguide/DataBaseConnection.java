@@ -104,7 +104,8 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 <!--auth eW7jYaEz7mnx0rrM       */
             case "beacons":
                 try {//"http://smartcityguide.org/mysql/beacons.php"
-                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
+                    Log.d("baklava", "beacon-id: " + beaconid);
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/data");
                     String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
                             + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
                             //+"&"+ URLEncoder.encode("namespace", "UTF-8");
@@ -118,6 +119,7 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                 break;
             case "buildingInquiry":
                 try {//"http://smartcityguide.org/mysql/location.php"
+                    Log.d("baklava", "buildingInquiry: " + beaconid);
                     URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/data");
                     String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
                             + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
@@ -211,6 +213,8 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
             JSONObject jsonObject = new JSONObject(jsonStr);
             JSONArray jsonArray = jsonObject.getJSONArray("recordset");
 
+            Log.d("subfolder", "action: " + typeOfAction);
+
             switch(typeOfAction){
                 case "buildingInquiry":
                     for(int i = 0; i < jsonArray.length(); i++)
@@ -246,6 +250,7 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 //                        information.put("safenode", String.valueOf(jsonArray.getJSONObject(i).getInt("safenode")));
 
                         informationList.add(information);
+                        Log.d("baklava", "Added JSON to info");
                     }
                 break;
                 case "beacons":
@@ -280,6 +285,7 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                         try {
                             outputStream.write(stringBuilder.toString().getBytes());
                             outputStream.write('\n');
+                            Log.d("subfolder", "write in file: " + stringBuilder);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
