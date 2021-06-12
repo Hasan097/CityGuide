@@ -536,7 +536,13 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 if (!searchingStatus[1] && !searchingStatus[2]) {
                     talk.start("Nothing was found!");
                 } else if (searchingStatus[2] && !searchingStatus[1]) {
-                    talk.start("Please choose one of the options from indoor locations!");
+                    ArrayList<HashMap<String, String>> locations = getIndoorLocationsToGo();
+                    String sentence = "";
+                    for(int i = 0; i < locations.size(); i++){
+                        sentence = sentence + locations.get(i).get("description") + ", ";
+                    }
+                    talk.start("Please choose one of the options from indoor locations, " +
+                            "They are as follows, " + sentence);
                     listViewToShow(getIndoorLocationsToGo(),2, 10);
                 } else if (!searchingStatus[2] && searchingStatus[1]) {
                     talk.start("Please choose one of the options from outdoor locations!");
@@ -789,7 +795,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             if (nodeDeciderArray[beaconNumber][WMA_OPTION] == WMA_OPTION) {
                 int triggerCounter = 0;
                 for (int i = 0; i < WMA_OPTION; i++) {
-                    if (Math.abs(nodeDeciderArray[beaconNumber][i]) > Math.abs(connections[beaconNumber][1]))       // Unsure if abs was necessary
+                    if (nodeDeciderArray[beaconNumber][i] > connections[beaconNumber][1])
                         triggerCounter++;
                 }
                 System.arraycopy(nodeDeciderArray[beaconNumber], 1, nodeDeciderArray[beaconNumber], 0, WMA_OPTION - 1);
@@ -1074,6 +1080,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             Log.d("beans", "indoorWayfinding: flag reached");
             indoorWayfindingFlag=false;
             indoorInitialization=false;
+            current = -1;                   // setting current beacon back to -1
+            number_Of_Sensors = 0;          // resetting number of sensors for another possible nav call once flag is reached.
         }
     }
 
@@ -1204,14 +1212,14 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         buildingSensorsMap[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = String.valueOf(connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0]);
 
 
-                        Log.d("beans", Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][6]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][7]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][8]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][9]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][10]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][11]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][12]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][13]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][14]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][15]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][16]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][17]+", "+
-                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][18]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][19]);
+//                        Log.d("beans", Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][6]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][7]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][8]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][9]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][10]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][11]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][12]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][13]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][14]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][15]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][16]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][17]+", "+
+//                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][18]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][19]);
                     }
 
                     StringBuilder mystrnodesrc = new StringBuilder("s = [");
