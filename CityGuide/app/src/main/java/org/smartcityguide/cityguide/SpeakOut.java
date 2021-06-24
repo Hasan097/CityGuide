@@ -20,6 +20,10 @@ public class SpeakOut {
         this.ctx = ctx;
     }
 
+    public boolean isItSpeaking(){
+        return textToSpeech.isSpeaking();
+    }
+
     public void start(final String string) {
         speakString = string;
         textToSpeech = new TextToSpeech(ctx, new TextToSpeech.OnInitListener() {
@@ -49,7 +53,6 @@ public class SpeakOut {
 
             @Override
             public void onDone(String utteranceId) {
-
             }
 
             @Override

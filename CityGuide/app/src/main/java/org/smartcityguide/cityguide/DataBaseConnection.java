@@ -213,7 +213,6 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
             JSONObject jsonObject = new JSONObject(jsonStr);
             JSONArray jsonArray = jsonObject.getJSONArray("recordset");
 
-            Log.d("subfolder", "action: " + typeOfAction);
 
             switch(typeOfAction){
                 case "buildingInquiry":
@@ -285,7 +284,6 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                         try {
                             outputStream.write(stringBuilder.toString().getBytes());
                             outputStream.write('\n');
-                            Log.d("subfolder", "write in file: " + stringBuilder);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

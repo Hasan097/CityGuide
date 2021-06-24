@@ -53,5 +53,13 @@ public class BlindFragment extends Fragment {
         return view;
     }
 
-
+    public String returnItem(){
+        String a = "";
+        Bundle arguments = getArguments();
+        if (arguments != null && arguments.containsKey(EXTRA_JOB_ID)) {
+            myListExample = getArguments().getStringArrayList(EXTRA_JOB_ID);
+            a = myListExample.get(0).trim().toLowerCase();
+        }
+        return a;
+    }
 }

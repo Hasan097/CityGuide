@@ -2,7 +2,10 @@ package org.smartcityguide.cityguide;
 
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.speech.RecognitionListener;
 import android.speech.SpeechRecognizer;
 import android.util.Log;
@@ -33,7 +36,10 @@ public class SpeechRecognition implements RecognitionListener {
 
     @Override
     public void onReadyForSpeech(Bundle bundle) {
-
+        ToneGenerator toneGen1 = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+        toneGen1.startTone(ToneGenerator.TONE_CDMA_PIP,150);
+        Vibrator vibe = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE) ;
+        vibe.vibrate(50);
     }
 
     @Override

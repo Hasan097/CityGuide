@@ -47,10 +47,14 @@ import android.util.Log;
 import android.view.View;
 import android.view.MenuItem;
 import android.view.WindowManager;
+import android.widget.AbsSpinner;
+import android.widget.AdapterView;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.SimpleAdapter;
@@ -69,6 +73,8 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.Thread.sleep;
+
 public class MainActivity extends AppCompatActivity implements AsyncResponse, RequestResponse, SensorEventListener, BLEResponse {
 
     private static final String TAG = "MyErrorDetector";
@@ -77,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean rerouting = false;
     private int FIRST_THRESHOLD;
     private int  STEP_SIZE,DISTANCE_UNITS;
+    private  int userVoiceInstructionCounter = 0;
     private ImageView img_compass;
     private CompassService dirService;
     private Timer directionTimer;
@@ -107,6 +114,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private RoutFinding rf = new RoutFinding();
     private String routeSrcDst;
     private TextToSpeech textToSpeech=null;
+    private int toggleBtnVar = 0;
     private int beaconNumber;
     private double[][][] mapDetails;
     private long lastReceivedTimeStamp = 0, lastSavedTimeBuffer = 0;
@@ -127,6 +135,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private int desNumber;
     private int number_Of_Sensors=0;
     private int finalDesNumber;
+    private ImageButton recordBtn;
     private int next;
     private int bufferRouCounter;
     private int[] bufferRou;
@@ -327,7 +336,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
 
-        ImageButton recordBtn = findViewById(R.id.recordBtn);
+        recordBtn = findViewById(R.id.recordBtn);
         recordBtn.setOnClickListener(new View.OnClickListener() {                                   //----->0
             @Override
             public void onClick(View v) {
@@ -335,7 +344,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 progressBar.setIndeterminate(true);
                 explorationFlag = false;
                 speech.onStart(recognizerIntent);
-
             }
         });
 
@@ -392,13 +400,28 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     @Override
     public void searchedFinish(ArrayList<HashMap<String, String>> result) {
         explorationFlag = false;
-        listViewToShow(result,1,1);
+        StringBuilder userInput = new StringBuilder(result.get(0).get("description"));
+        if( "yes".equals(userInput.toString().toLowerCase()) || "confirm".equals(userInput.toString().toLowerCase())
+        || "yup".equals(userInput.toString().toLowerCase()) || "confirmed".equals(userInput.toString().toLowerCase())){
+            if(indoorLocationsToGo == null){
+                talk.start("Please try again.");
+            } else{
+                listViewToShow(getIndoorLocationsToGo(), 2, 1000);
+            }
+        } else if("no".equals(userInput.toString().toLowerCase())
+                || "nope".equals(userInput.toString().toLowerCase())){
+            talk.start("Search Cancelled");
+        } else{
+            userVoiceInstructionCounter = 1;
+            searchingTime(userInput);
+        }
 //        HashMap<String, String> FR = result.get(0);
 //        result = new ArrayList<>();
 //        result.add(FR);
 //        resultsToshowExploration.clear();
 //        resultsToshowExploration.addAll(result);
 //        simpleAdapter.notifyDataSetChanged();
+//        ListView listView = findViewById(R.id.list_view);
 //        listView.setAdapter(simpleAdapter);
 //        final ArrayList<HashMap<String, String>> finalResult = result;
 //        talk.start("Please either confirm the following option or say your destination again!");
@@ -541,9 +564,17 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     for(int i = 0; i < locations.size(); i++){
                         sentence = sentence + locations.get(i).get("description") + ", ";
                     }
-                    talk.start("Please choose one of the options from indoor locations, " +
-                            "They are as follows, " + sentence);
-                    listViewToShow(getIndoorLocationsToGo(),2, 10);
+                    if(userVoiceInstructionCounter == 1){
+                        speakOut("Did you mean " + sentence + "? Please confirm or say no after the tone...");
+                        userVoiceInstructionCounter = 0;
+                        toggleBtnVar = 1;
+                        listViewToShow(getIndoorLocationsToGo(), 2, 10);
+                    }
+                    else {
+                        talk.start("Please choose one of the options from indoor locations, " +
+                                "They are as follows, " + sentence);
+                        listViewToShow(getIndoorLocationsToGo(), 2, 10);
+                    }
                 } else if (!searchingStatus[2] && searchingStatus[1]) {
                     talk.start("Please choose one of the options from outdoor locations!");
                     listViewToShow(getOutdoorLocationsToGo(),3, 10);
@@ -607,8 +638,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         beacon_RSSI = BLE_RSSI;
         beacon_id = beaconID;
         beacon_namespace = beaconNameSpace;
+        Log.d("beans","beaconid: " + beacon_id + "rssi: " + beacon_RSSI);
         if (!beacon_download_flag) {
-            Log.d("Beacon_download_flag", "beaconSighting: " + beacon_id + " , RSSI:" + beacon_RSSI + "NameSpace: " + beacon_namespace);
             loginFunc("beacons", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
 //        else if (beacon_location.toString().compareTo("outdoor") == 0 && inquiry_flag) {
 //            loginFunc("outdoorInquiry", new StringBuilder("admin"), new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_namespace.toString().toLowerCase().trim());
@@ -884,8 +915,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             }
         }
 
-        Log.d("beans", "beacon info: " + beacon_id + " " + beacon_RSSI);
-        if (beacon_RSSI > -110 && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
+        if (beacon_RSSI > -300 && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
 
             lastSavedTimeBuffer = lastReceivedTimeStamp;
             if (nodeDeciderArray[beaconNumber][WMA_OPTION] < WMA_OPTION) {
@@ -1077,7 +1107,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         }
 
         if (reachFlag) {
-            Log.d("beans", "indoorWayfinding: flag reached");
             indoorWayfindingFlag=false;
             indoorInitialization=false;
             current = -1;                   // setting current beacon back to -1
@@ -1483,7 +1512,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void showProgressDialog() {
-        talk.start("Start Searching!");
+        talk.start("Searching...");
         progressDialogFlag=true;
         runOnUiThread(new Runnable() {
             @Override
@@ -1696,7 +1725,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void listViewToShow(ArrayList<HashMap<String, String>> result, int nextStep, int noResultToShow) {
-
+        if(toggleBtnVar == 1){
+            try {
+                sleep(6000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            toggleBtnVar = 0;
+            recordBtn.performClick();
+        }
         Bundle bundle = new Bundle();
         ArrayList<String> myListExample = new ArrayList<>();
         for(int i=0;i<result.size(); i++) {
@@ -1704,18 +1741,27 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 myListExample.add(result.get(i).get("description"));
         }
         myListExample.add(String.valueOf(nextStep));
+        String item = "";
 
         bundle.putStringArrayList("dataFromMainActivity",myListExample);
         if(frgno == 1) {
             fragmentBlind = new BlindFragment();
             fragmentBlindTransaction = fragmentManager.beginTransaction();
             fragmentBlind.setArguments(bundle);
+            item = fragmentBlind.returnItem();
+            if(noResultToShow == 1000 && item != null){
+                getResult(item, 0, 2);
+            }
             fragmentBlindTransaction.replace(R.id.frame, fragmentBlind);
             fragmentBlindTransaction.commit();
         }else if(frgno != 1){
             myFrame.removeAllViews();
             fragmentBlindTransaction = fragmentManager.beginTransaction();
             fragmentBlind.setArguments(bundle);
+            item = fragmentBlind.returnItem();
+            if(noResultToShow == 1000 && item != null){
+                getResult(item, 0, 2);
+            }
             fragmentBlindTransaction.replace(R.id.frame, fragmentBlind);
             fragmentBlindTransaction.commit();
             frgno = 1;
