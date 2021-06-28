@@ -49,7 +49,7 @@ public class Routing {
                         if(!flag){
                             for(int k=0;k<sensors;k++){//This for loop is to see if the node has been frontier
                                 if(frontier[k]==i){
-                                    if((overallPath+path[current][i][0]<smallest[frontier[k]])){
+                                    if(path[current][i][0] > 0 && (overallPath+path[current][i][0]<smallest[frontier[k]])){
                                         smallest[frontier[k]]=overallPath+path[current][i][0];
                                         smallestRoute[frontier[k]]=smallestRoute[current]+ Integer.toString(i)+',';
                                     }
@@ -58,7 +58,7 @@ public class Routing {
                             }
                         }
                         if(!flag){
-                            if((overallPath+path[current][i][0]<smallest[i])){
+                            if(path[current][i][0] > 0 && (overallPath+path[current][i][0]<smallest[i])){
                                 smallest[i]=overallPath+path[current][i][0];
                                 smallestRoute[i]=smallestRoute[current]+ Integer.toString(i)+',';
                             }

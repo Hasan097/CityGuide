@@ -11,7 +11,7 @@ public class Separation {
         for(int i=0;i<sensors;i++) {
             doors[connections[i][0]] = connections[i][2];
             for(int j=4;j<19;j=j+2){
-                if(connections[i][j]!=-10){
+                if(connections[i][j]!=-10 && connections[i][j]!=-33 && connections[i][j]!=0){
                     path[connections[i][0]][connections[i][j]][0] = connections[i][j+1];// Here we define Weight Between src to des
                     //We define directions
                     switch (j){

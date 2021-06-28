@@ -47,10 +47,14 @@ import android.util.Log;
 import android.view.View;
 import android.view.MenuItem;
 import android.view.WindowManager;
+import android.widget.AbsSpinner;
+import android.widget.AdapterView;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.SimpleAdapter;
@@ -63,9 +67,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static java.lang.Thread.sleep;
 
 public class MainActivity extends AppCompatActivity implements AsyncResponse, RequestResponse, SensorEventListener, BLEResponse {
 
@@ -75,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean rerouting = false;
     private int FIRST_THRESHOLD;
     private int  STEP_SIZE,DISTANCE_UNITS;
+    private  int userVoiceInstructionCounter = 0;
     private ImageView img_compass;
     private CompassService dirService;
     private Timer directionTimer;
@@ -97,12 +106,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean speakFlag;
     private StringBuilder[][] buildings_info;
     private int[][] connections;
-    private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<>();
+    private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<HashMap<Integer, StringBuilder>>();
     private StringBuilder beacon_location = new StringBuilder();
     private boolean beacon_download_flag = false;
+    private int stop_multiple = 0;
+    private int inquiry_counter = 0;
     private RoutFinding rf = new RoutFinding();
     private String routeSrcDst;
     private TextToSpeech textToSpeech=null;
+    private int toggleBtnVar = 0;
     private int beaconNumber;
     private double[][][] mapDetails;
     private long lastReceivedTimeStamp = 0, lastSavedTimeBuffer = 0;
@@ -123,6 +135,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private int desNumber;
     private int number_Of_Sensors=0;
     private int finalDesNumber;
+    private ImageButton recordBtn;
     private int next;
     private int bufferRouCounter;
     private int[] bufferRou;
@@ -323,7 +336,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
 
-        ImageButton recordBtn = findViewById(R.id.recordBtn);
+        recordBtn = findViewById(R.id.recordBtn);
         recordBtn.setOnClickListener(new View.OnClickListener() {                                   //----->0
             @Override
             public void onClick(View v) {
@@ -331,7 +344,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 progressBar.setIndeterminate(true);
                 explorationFlag = false;
                 speech.onStart(recognizerIntent);
-
             }
         });
 
@@ -388,13 +400,28 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     @Override
     public void searchedFinish(ArrayList<HashMap<String, String>> result) {
         explorationFlag = false;
-        listViewToShow(result,1,1);
+        StringBuilder userInput = new StringBuilder(result.get(0).get("description"));
+        if( "yes".equals(userInput.toString().toLowerCase()) || "confirm".equals(userInput.toString().toLowerCase())
+        || "yup".equals(userInput.toString().toLowerCase()) || "confirmed".equals(userInput.toString().toLowerCase())){
+            if(indoorLocationsToGo == null){
+                talk.start("Please try again.");
+            } else{
+                listViewToShow(getIndoorLocationsToGo(), 2, 1000);
+            }
+        } else if("no".equals(userInput.toString().toLowerCase())
+                || "nope".equals(userInput.toString().toLowerCase())){
+            talk.start("Search Cancelled");
+        } else{
+            userVoiceInstructionCounter = 1;
+            searchingTime(userInput);
+        }
 //        HashMap<String, String> FR = result.get(0);
 //        result = new ArrayList<>();
 //        result.add(FR);
 //        resultsToshowExploration.clear();
 //        resultsToshowExploration.addAll(result);
 //        simpleAdapter.notifyDataSetChanged();
+//        ListView listView = findViewById(R.id.list_view);
 //        listView.setAdapter(simpleAdapter);
 //        final ArrayList<HashMap<String, String>> finalResult = result;
 //        talk.start("Please either confirm the following option or say your destination again!");
@@ -444,29 +471,32 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 boolean firstFlag = false, secondFlag = false;
                 ArrayList<Integer> tempArray = new ArrayList<>();
                 if (beacon_RSSI > -100 && !searchingStatus[2] && buildings_info != null) {
-
                     if (buildings_info.length > 0) {
                         for (int i = 0; i < buildings_info.length; i++) {
-                            if (buildings_info[i][1].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase()) ||
-                                    buildings_info[i][2].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase())) {
-                                HashMap<String, String> data = new HashMap<>();
-                                data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
-                                data.put("loop_number", String.valueOf(i));
-                                indoorLocations.add(data);
-                                firstFlag = true;
-                                tempArray.add(i);
-                            }
-                        }
-                        if (!firstFlag) {
-                            for (int i = 0; i < buildings_info.length; i++) {
-                                if ((buildings_info[i][1].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()) ||
-                                        buildings_info[i][2].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()))) {
+                            if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
+                                if (buildings_info[i][1].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase()) ||
+                                        buildings_info[i][2].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase())) {
                                     HashMap<String, String> data = new HashMap<>();
                                     data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
                                     data.put("loop_number", String.valueOf(i));
                                     indoorLocations.add(data);
-                                    secondFlag = true;
+                                    firstFlag = true;
                                     tempArray.add(i);
+                                }
+                            }
+                        }
+                        if (!firstFlag) {
+                            for (int i = 0; i < buildings_info.length; i++) {
+                                if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
+                                    if ((buildings_info[i][1].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()) ||
+                                            buildings_info[i][2].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()))) {
+                                        HashMap<String, String> data = new HashMap<>();
+                                        data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
+                                        data.put("loop_number", String.valueOf(i));
+                                        indoorLocations.add(data);
+                                        secondFlag = true;
+                                        tempArray.add(i);
+                                    }
                                 }
                             }
                         }
@@ -474,13 +504,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                             String strTemp[] = user_input.toString().trim().toLowerCase().replace("#", "").split(" ");
                             for (int i = 0; i < buildings_info.length; i++) {
                                 for (int j = 0; j < strTemp.length; j++) {
-                                    if ((buildings_info[i][1].toString().toLowerCase().trim().contains(strTemp[j]) ||
-                                            buildings_info[i][2].toString().toLowerCase().trim().contains(strTemp[j]))) {
-                                        HashMap<String, String> data = new HashMap<>();
-                                        data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
-                                        data.put("loop_number", String.valueOf(i));
-                                        indoorLocations.add(data);
-                                        tempArray.add(i);
+                                    if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
+                                        if ((buildings_info[i][1].toString().toLowerCase().trim().contains(strTemp[j]) ||
+                                                buildings_info[i][2].toString().toLowerCase().trim().contains(strTemp[j]))) {
+                                            HashMap<String, String> data = new HashMap<>();
+                                            data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
+                                            data.put("loop_number", String.valueOf(i));
+                                            indoorLocations.add(data);
+                                            tempArray.add(i);
+                                        }
                                     }
                                 }
                             }
@@ -527,11 +559,25 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 if (!searchingStatus[1] && !searchingStatus[2]) {
                     talk.start("Nothing was found!");
                 } else if (searchingStatus[2] && !searchingStatus[1]) {
-                    talk.start("Please choose one of the options from indoor locations!");
-                    listViewToShow(getIndoorLocationsToGo(),2, 1);
+                    ArrayList<HashMap<String, String>> locations = getIndoorLocationsToGo();
+                    String sentence = "";
+                    for(int i = 0; i < locations.size(); i++){
+                        sentence = sentence + locations.get(i).get("description") + ", ";
+                    }
+                    if(userVoiceInstructionCounter == 1){
+                        speakOut("Did you mean " + sentence + "? Please confirm or say no after the tone...");
+                        userVoiceInstructionCounter = 0;
+                        toggleBtnVar = 1;
+                        listViewToShow(getIndoorLocationsToGo(), 2, 10);
+                    }
+                    else {
+                        talk.start("Please choose one of the options from indoor locations, " +
+                                "They are as follows, " + sentence);
+                        listViewToShow(getIndoorLocationsToGo(), 2, 10);
+                    }
                 } else if (!searchingStatus[2] && searchingStatus[1]) {
                     talk.start("Please choose one of the options from outdoor locations!");
-                    listViewToShow(getOutdoorLocationsToGo(),3, 1);
+                    listViewToShow(getOutdoorLocationsToGo(),3, 10);
 
                 } else {
                     final ArrayList<HashMap<String, String>> finalResult = new ArrayList<>();
@@ -592,21 +638,33 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         beacon_RSSI = BLE_RSSI;
         beacon_id = beaconID;
         beacon_namespace = beaconNameSpace;
-        if (!beacon_download_flag)
-            loginFunc("beacons", new StringBuilder("admin"), new StringBuilder("W50d9Pqn5a"), beacon_namespace, "");
-        else if (beacon_location.toString().compareTo("outdoor") == 0 && inquiry_flag) {
-            loginFunc("outdoorInquiry", new StringBuilder("admin"), new StringBuilder("W50d9Pqn5a"), beacon_namespace, beacon_namespace.toString().toLowerCase().trim());
-            inquiry_flag = false;
-        } else if (inquiry_flag && beacon_location.toString().compareTo("outdoor") != 0) {
-            loginFunc("buildingInquiry", new StringBuilder("admin"), new StringBuilder("W50d9Pqn5a"), beacon_namespace, beacon_location.toString());
-            inquiry_flag = false;
+        Log.d("beans","beaconid: " + beacon_id + "rssi: " + beacon_RSSI);
+        if (!beacon_download_flag) {
+            loginFunc("beacons", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
+//        else if (beacon_location.toString().compareTo("outdoor") == 0 && inquiry_flag) {
+//            loginFunc("outdoorInquiry", new StringBuilder("admin"), new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_namespace.toString().toLowerCase().trim());
+//            inquiry_flag = false;
+//
+        }
+        else if (inquiry_flag && beacon_location.toString().compareTo("outdoor") != 0) {
+            for(int i = 0; i < beacons_array.size() ; i++){
+                if(beacons_array.get(i).containsKey(Integer.parseInt(String.valueOf(beacon_id)))) {
+                    loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_location.toString());
+                    beacons_array.remove(i);
+                }
+                else
+                    inquiry_counter++;
+            }
+            if(inquiry_counter > 10) {
+                inquiry_flag = false;
+            }
         }
         lastReceivedTimeStamp = System.currentTimeMillis();
 
             if (buildings_info != null) {
                 if (buildings_info.length > 0) {
                     for (int i = 0; i < buildings_info.length; i++) {
-                        if (Integer.valueOf(buildings_info[i][0].toString()).equals(Integer.valueOf(beacon_id.toString()))) {
+                        if (buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()).equals(Integer.valueOf(beacon_id.toString()))) {
                             beaconNumber = connections[i][0];
                             if (explorationFlag && !inquiry_flag && beacon_download_flag && !EVACUATION_FLAG) {
                                 explorationMode();
@@ -796,12 +854,26 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             br = new BufferedReader(new FileReader(file));
 
             while ((lineReader = br.readLine()) != null) {
-
+                int checker = 0;
                 String[] splitter = lineReader.split(",");
                 beacons_array_Hash = new HashMap<>();
                 beacons_array_Hash.put(Integer.valueOf(splitter[0]), new StringBuilder(splitter[1]));
-                beacons_array.add(beacons_array_Hash);
-
+                if(beacons_array.size() == 0){
+                    beacons_array.add(beacons_array_Hash);
+                }
+                else {
+                    for (int i = 0; i < beacons_array.size(); i++) {
+                        if (beacons_array.get(i).keySet().equals(beacons_array_Hash.keySet())) {
+                            checker = 1;
+                        }
+                        if(checker == 1 && i == (beacons_array.size() - 1)){
+                            stop_multiple++;
+                        }
+                    }
+                    if(checker == 0){
+                        beacons_array.add(beacons_array_Hash);
+                    }
+                }
             }
             br.close();
         } catch (IOException e) {
@@ -816,15 +888,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         }
 
         beacon_location = new StringBuilder(beacon_location.toString().trim().toLowerCase());
-//        Log.d(TAG, "readFile: " + beacon_location);
 
-        beacon_download_flag = true;
+        if(stop_multiple > 7)
+            beacon_download_flag = true;
+
         inquiry_flag = true;
 
     }
 
     private void indoorWayfinding() {
-
         if (!indoorInitialization && number_Of_Sensors==0){
             number_Of_Sensors = Integer.valueOf(buildings_info[Integer.valueOf(loop_number)][3].toString());
             if(number_Of_Sensors!=0){
@@ -843,7 +915,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             }
         }
 
-        if (beacon_RSSI > FIRST_THRESHOLD && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
+        if (beacon_RSSI > -300 && lastSavedTimeBuffer != lastReceivedTimeStamp && indoorInitialization) {
 
             lastSavedTimeBuffer = lastReceivedTimeStamp;
             if (nodeDeciderArray[beaconNumber][WMA_OPTION] < WMA_OPTION) {
@@ -1037,6 +1109,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         if (reachFlag) {
             indoorWayfindingFlag=false;
             indoorInitialization=false;
+            current = -1;                   // setting current beacon back to -1
+            number_Of_Sensors = 0;          // resetting number of sensors for another possible nav call once flag is reached.
         }
     }
 
@@ -1080,28 +1154,38 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 case "outdoorInquiry":
                     break;
                 case "buildingInquiry":
-                    buildingSensorsMap = new String[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][2];
-                    connections = new int[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][24];
-                    buildings_info = new StringBuilder[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][6];
+                    if(buildingSensorsMap == null)
+                        buildingSensorsMap = new String[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][2];
+                    if(connections == null)
+                        connections = new int[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][24];
+                    if(buildings_info == null) {
+                        buildings_info = new StringBuilder[Integer.parseInt(serverInquiryResult.get(0).get("numsens"))][6];
+                    }
+                    else {
+                        for (int i = 0; i < buildings_info.length; i++){
+                            if(buildings_info[i][0] != null)
+                                Log.d("valueUpdate", "building[" + i + "]" + "[0] = " + buildings_info[i][0]);
+                        }
+                    }
                     num = Integer.parseInt(serverInquiryResult.get(0).get("numsens"));
                     for (int i = 0; i < serverInquiryResult.size(); i++) {
                         buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = new StringBuilder(serverInquiryResult.get(i).get("id"));
                         buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = new StringBuilder(serverInquiryResult.get(i).get("locname"));
                         buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][2] = new StringBuilder(serverInquiryResult.get(i).get("other"));
                         buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][3] = new StringBuilder(serverInquiryResult.get(i).get("numsens"));
-                        buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4] = new StringBuilder(serverInquiryResult.get(i).get("emgmode"));
-                        buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5] = new StringBuilder(serverInquiryResult.get(i).get("emgtype"));
+                        buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4] = new StringBuilder("0"); //new StringBuilder(serverInquiryResult.get(i).get("emgmode"));
+                        buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5] = new StringBuilder("0"); //new StringBuilder(serverInquiryResult.get(i).get("emgtype"));
 
-                        if(Integer.valueOf(serverInquiryResult.get(i).get("safenode"))!=1) {
-                            blockNodes.add(Integer.valueOf(serverInquiryResult.get(i).get("node")));
-                            if (DISTANCE_UNITS == 1)
-                                blockNodesDistance.add(blockZone);
-                            else
-                                blockNodesDistance.add(meterToFeet(blockZone));
-                        }
+//                        if(Integer.valueOf(serverInquiryResult.get(i).get("safenode"))!=1) {
+//                            blockNodes.add(Integer.valueOf(serverInquiryResult.get(i).get("node")));
+//                            if (DISTANCE_UNITS == 1)
+//                                blockNodesDistance.add(blockZone);
+//                            else
+//                                blockNodesDistance.add(meterToFeet(blockZone));
+//                        }
 
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = Integer.valueOf(serverInquiryResult.get(i).get("node"));
-                        connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = Integer.valueOf(serverInquiryResult.get(i).get("threshold"));
+                        connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = -(Integer.valueOf(serverInquiryResult.get(i).get("threshold")));
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][2] = Integer.valueOf(serverInquiryResult.get(i).get("direction"));
                         connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][3] = Integer.valueOf(serverInquiryResult.get(i).get("level"));
                         //North
@@ -1155,7 +1239,9 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
                         buildingSensorsMap[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0] = buildings_info[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1].toString();
                         buildingSensorsMap[Integer.valueOf(serverInquiryResult.get(i).get("node"))][1] = String.valueOf(connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][0]);
-//                        Log.d(TAG, Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
+
+
+//                        Log.d("beans", Integer.valueOf(serverInquiryResult.get(i).get("node"))+"->"+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][4]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][5]+", "+
 //                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][6]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][7]+", "+
 //                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][8]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][9]+", "+
 //                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][10]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][11]+", "+
@@ -1165,27 +1251,27 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 //                                connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][18]+" = "+connections[Integer.valueOf(serverInquiryResult.get(i).get("node"))][19]);
                     }
 
-//                    StringBuilder mystrnodesrc = new StringBuilder("s = [");
-//                    StringBuilder mystrnodedes = new StringBuilder("t = [");
-//                    StringBuilder mystrweight = new StringBuilder("weights = [");
-//                    StringBuilder mystrname = new StringBuilder("names = {");
-//                    for(int k=0;k<num;k++){
-//                        for(int j=4;j<20;j=j+2){
-//                            if(connections[k][j]!=-10 && (connections[k][j]+1)>(k+1)){
-//                                mystrnodesrc.append(k+1).append(" ");
-//                                mystrnodedes.append(connections[k][j]+1).append(" ");
-//                                mystrweight.append(connections[k][j+1]).append(" ");
-//
-//                            }
-//                        }
-//                    }
-//                    for(int k=0;k<num-1;k++) {
-//                        mystrname.append('\'').append(k).append('\'').append(" ");
-//                    }
-//                    mystrnodesrc.append("];");
-//                    mystrnodedes.append("];");
-//                    mystrweight.append("];");
-//                    mystrname.append("};");
+                    StringBuilder mystrnodesrc = new StringBuilder("s = [");
+                    StringBuilder mystrnodedes = new StringBuilder("t = [");
+                    StringBuilder mystrweight = new StringBuilder("weights = [");
+                    StringBuilder mystrname = new StringBuilder("names = {");
+                    for(int k=0;k<num;k++){
+                        for(int j=4;j<20;j=j+2){
+                            if(connections[k][j]!=-10 && (connections[k][j]+1)>(k+1)){
+                                mystrnodesrc.append(k+1).append(" ");
+                                mystrnodedes.append(connections[k][j]+1).append(" ");
+                                mystrweight.append(connections[k][j+1]).append(" ");
+
+                            }
+                        }
+                    }
+                    for(int k=0;k<num-1;k++) {
+                        mystrname.append('\'').append(k).append('\'').append(" ");
+                    }
+                    mystrnodesrc.append("];");
+                    mystrnodedes.append("];");
+                    mystrweight.append("];");
+                    mystrname.append("};");
 //                    Log.d(TAG, "serverInquiry: "+mystrnodesrc+mystrnodedes+mystrweight+mystrname+"G = graph(s,t,weights,names);"+"plot(G,'EdgeLabel',G.Edges.Weight);");
 //                    Log.d(TAG, "serverInquiry: "+mystrnodedes);
 //                    Log.d(TAG, "serverInquiry: "+mystrweight);
@@ -1193,7 +1279,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 //                    Log.d(TAG, "serverInquiry: "+"G = graph(s,t,weights,names)");
 //                    Log.d(TAG, "serverInquiry: "+"plot(G,'EdgeLabel',G.Edges.Weight)");
 
-                    StringBuilder mystrweight = new StringBuilder("weights = [");
+                    mystrweight = new StringBuilder("weights = [");
                     StringBuilder nodeName = new StringBuilder("nodes = [");
                     StringBuilder xSiteSRC = new StringBuilder("xs = [");
                     StringBuilder ySiteSRC = new StringBuilder("ys = [");
@@ -1218,41 +1304,41 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                             }
                         }
                     }
-                    Log.d(TAG, " "+xSiteSRC.append("];"));
-                    Log.d(TAG, " "+ySiteSRC.append("];"));
-                    Log.d(TAG, " "+xSiteDES.append("];"));
-                    Log.d(TAG, " "+ySiteDES.append("];"));
-                    Log.d(TAG, " "+nodeName.append("];"));
-                    Log.d(TAG, " "+mystrweight.append("];"));
+//                    Log.d(TAG, " "+xSiteSRC.append("];"));
+//                    Log.d(TAG, " "+ySiteSRC.append("];"));
+//                    Log.d(TAG, " "+xSiteDES.append("];"));
+//                    Log.d(TAG, " "+ySiteDES.append("];"));
+//                    Log.d(TAG, " "+nodeName.append("];"));
+//                    Log.d(TAG, " "+mystrweight.append("];"));
 
-                    if(Integer.valueOf(buildings_info[beaconNumber][4].toString())>0){
-                        EVACUATION_FLAG=true;
-                        speakFlag = true;
-                        int nodeToChange, updateDistance;
-                        for(int i=0;i<blockNodes.size();i++) {
-                            nodeToChange = blockNodes.get(i);
-                            updateDistance = blockNodesDistance.get(i);
-                            blockNodes.remove(i);
-                            blockNodesDistance.remove(i);
-                            for(int k=0;k<num;k++){
-                                for(int j=4;j<20;j=j+2){
-                                    if(connections[k][j]==nodeToChange){
-                                        if(updateDistance-connections[k][j+1]>0){
-                                            blockNodesDistance.add(updateDistance-connections[k][j+1]);
-                                            blockNodes.add(k);
-                                        }
-                                        connections[k][j+1]=connections[k][j+1]+500;
-                                        i=-1;
-                                    }
-                                    if(k==nodeToChange){
-                                        if(connections[k][j]!=-10){
-                                            connections[k][j+1]=connections[k][j+1]+500;
-                                        }
-                                    }
-                                }
-                            }
-
-                        }
+//                    if(Integer.valueOf(buildings_info[beaconNumber][4].toString())>0){
+//                        EVACUATION_FLAG=true;
+//                        speakFlag = true;
+//                        int nodeToChange, updateDistance;
+//                        for(int i=0;i<blockNodes.size();i++) {
+//                            nodeToChange = blockNodes.get(i);
+//                            updateDistance = blockNodesDistance.get(i);
+//                            blockNodes.remove(i);
+//                            blockNodesDistance.remove(i);
+//                            for(int k=0;k<num;k++){
+//                                for(int j=4;j<20;j=j+2){
+//                                    if(connections[k][j]==nodeToChange){
+//                                        if(updateDistance-connections[k][j+1]>0){
+//                                            blockNodesDistance.add(updateDistance-connections[k][j+1]);
+//                                            blockNodes.add(k);
+//                                        }
+//                                        connections[k][j+1]=connections[k][j+1]+500;
+//                                        i=-1;
+//                                    }
+//                                    if(k==nodeToChange){
+//                                        if(connections[k][j]!=-10){
+//                                            connections[k][j+1]=connections[k][j+1]+500;
+//                                        }
+//                                    }
+//                                }
+//                            }
+//
+//                        }
 
                         Log.d(TAG, "***********************************************************************");
 //                        for(int k=0;k<num;k++){
@@ -1293,23 +1379,18 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         Log.d(TAG, " "+ySiteDES.append("];"));
                         Log.d(TAG, " "+nodeName.append("];"));
                         Log.d(TAG, " "+mystrweight.append("];"));
-
-                    }
-
-
-
                     break;
                 case "login":
                     break;
+                    }
             }
-        } else if (!beacon_download_flag) {
-            readFile();
+        else if (!beacon_download_flag) {
+                readFile();
+            }
         }
-    }
 
     private void loginFunc(String typeOfAction, StringBuilder uName, StringBuilder pass,
                            StringBuilder namespace, String locationName) {
-
         DataBaseConnection dataBaseConnection = new DataBaseConnection(this);
         dataBaseConnection.execute(typeOfAction, uName.toString(), pass.toString(), namespace.toString().toLowerCase(), locationName);
     }
@@ -1329,7 +1410,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void pixelsInitialization() {
-        xy[0][0] = 737;xy[0][1] = 110;
+        xy[0][0] = 301;xy[0][1] = 110;          //[0][0] changed from 737 to 304
         xy[1][0] = 737;xy[1][1] = 277;
         xy[2][0] = 212;xy[2][1] = 277;
         xy[3][0] = 354;xy[3][1] = 277;
@@ -1431,7 +1512,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void showProgressDialog() {
-        talk.start("Start Searching!");
+        talk.start("Searching...");
         progressDialogFlag=true;
         runOnUiThread(new Runnable() {
             @Override
@@ -1644,25 +1725,43 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void listViewToShow(ArrayList<HashMap<String, String>> result, int nextStep, int noResultToShow) {
-
+        if(toggleBtnVar == 1){
+            try {
+                sleep(6000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            toggleBtnVar = 0;
+            recordBtn.performClick();
+        }
         Bundle bundle = new Bundle();
         ArrayList<String> myListExample = new ArrayList<>();
-        for(int i=0;i<noResultToShow;i++)
-            myListExample.add(result.get(i).get("description"));
-
+        for(int i=0;i<result.size(); i++) {
+            if(result.get(i).get("description") != null)
+                myListExample.add(result.get(i).get("description"));
+        }
         myListExample.add(String.valueOf(nextStep));
+        String item = "";
 
         bundle.putStringArrayList("dataFromMainActivity",myListExample);
         if(frgno == 1) {
             fragmentBlind = new BlindFragment();
             fragmentBlindTransaction = fragmentManager.beginTransaction();
             fragmentBlind.setArguments(bundle);
+            item = fragmentBlind.returnItem();
+            if(noResultToShow == 1000 && item != null){
+                getResult(item, 0, 2);
+            }
             fragmentBlindTransaction.replace(R.id.frame, fragmentBlind);
             fragmentBlindTransaction.commit();
         }else if(frgno != 1){
             myFrame.removeAllViews();
             fragmentBlindTransaction = fragmentManager.beginTransaction();
             fragmentBlind.setArguments(bundle);
+            item = fragmentBlind.returnItem();
+            if(noResultToShow == 1000 && item != null){
+                getResult(item, 0, 2);
+            }
             fragmentBlindTransaction.replace(R.id.frame, fragmentBlind);
             fragmentBlindTransaction.commit();
             frgno = 1;
