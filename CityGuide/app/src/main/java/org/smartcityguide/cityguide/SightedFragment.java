@@ -105,7 +105,7 @@ public class SightedFragment extends Fragment {
         public Layout(Context context) {
             super(context);
             setBackgroundResource(R.color.colorWhite);
-            scaledBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.flrrr);
+            scaledBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.wallace_3rd_flr);
             SGD = new ScaleGestureDetector(getContext(), new Layout.ScaleListener());
             setWillNotDraw(false);
         }
@@ -167,7 +167,26 @@ public class SightedFragment extends Fragment {
                 moveFlag = false;
             }
 
-            canvas.drawBitmap(Bitmap.createScaledBitmap(scaledBitmap, Math.round(imgWidth*scale),Math.round((imgHeight-getStatusBarHeight())*scale), false),x*scale,y*scale,null);
+            int screenWidth = this.getWidth();
+            int screenHeight = this.getHeight();
+
+            int bitmapWidth = scaledBitmap.getWidth();
+            int bitmapHeight = scaledBitmap.getHeight();
+
+            float screenRatio = (float)screenWidth/(float)screenHeight;
+            float bitmapRatio = (float)bitmapWidth/(float)bitmapHeight;
+
+            int finalWidth = bitmapWidth;
+            int finalHeight = bitmapHeight;
+
+            if(screenRatio > bitmapRatio){
+                finalWidth = (int)((float)screenHeight * bitmapRatio);
+            }
+            else{
+                finalHeight = (int)((float)screenWidth / bitmapRatio);
+            }
+
+            canvas.drawBitmap(Bitmap.createScaledBitmap(scaledBitmap, Math.round(finalWidth*scale),Math.round((finalHeight-getStatusBarHeight())*scale), false),x*scale,y*scale,null);
 
             drawingPath(canvas,x,y);
             invalidate();
@@ -227,11 +246,15 @@ public class SightedFragment extends Fragment {
         public void getImageDimention(){
             BitmapFactory.Options dimensions = new BitmapFactory.Options();
             dimensions.inJustDecodeBounds = true;
-            BitmapFactory.decodeResource(getResources(),R.drawable.flrrr,dimensions);
+            BitmapFactory.decodeResource(getResources(), R.drawable.wallace_3rd_flr,dimensions);
             imgHeight = dimensions.outHeight;
             imgWidth =  dimensions.outWidth;
         }
 
+    }
+
+    public void setFloorMap(int beaconID){
+        // here we set the floor plan
     }
 
     public void xyToDraw(int nodeNumber, int xy[][], String extraInformationToSay, String getRouteSrcDst){

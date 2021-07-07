@@ -82,6 +82,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean firstTimeFlag = false;
     private boolean rerouting = false;
     private int FIRST_THRESHOLD;
+    private boolean floorPlanFlag = false;
     private int  STEP_SIZE,DISTANCE_UNITS;
     private  int userVoiceInstructionCounter = 0;
     private ImageView img_compass;
@@ -121,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private String[][] buildingSensorsMap;
     private int[][] nodeDeciderArray;
     private boolean ROUTE_PREVIEW, MIDPOINTS_LOCATIONS;
-    private int DISTANCE_OPTION, DIRECTION_OPTION, USER_CATEGORY, WAITING_TIME, current = -1;
+    private int DISTANCE_OPTION, DIRECTION_OPTION, USER_CATEGORY, WAITING_TIME, current = -1, prev = -1;
     private boolean inquiry_flag = false;
     private double[] weightedAverage;
     private StringBuilder[] instructionVoice;
@@ -659,6 +660,12 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 inquiry_flag = false;
             }
         }
+
+        if(floorPlanFlag == true){
+            loginFunc("getFloor", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
+            floorPlanFlag = false;
+        }
+
         lastReceivedTimeStamp = System.currentTimeMillis();
 
             if (buildings_info != null) {
@@ -1103,6 +1110,13 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         }
                     }
                 }
+            }
+        }
+
+        if(current != -1) {
+            if (current != prev){
+                floorPlanFlag = true;
+                prev = current;
             }
         }
 

@@ -134,6 +134,25 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     e.printStackTrace();
                 }
                 break;
+
+            case "getFloor":
+                try {
+                    Log.d("baklava", "buildingInquiry: " + beaconid);
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
+                    String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
+//                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username, "UTF-8") + "&"
+//                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password, "UTF-8")+"&"
+//                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName, "UTF-8");
+                    return serverConnector(url,post_data);
+                    //here we need to return to the main activity
+
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
 //            case "outdoorInquiry":
 //f
 //                try {//"http://smartcityguide.org/mysql/outdoor.php"
@@ -208,8 +227,6 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
         ArrayList<HashMap<String,String>> informationList = new ArrayList<>();
         HashMap<String, String> information;
         try {
-
-//            JSONArray jsonArray = new JSONArray(jsonStr);
             JSONObject jsonObject = new JSONObject(jsonStr);
             JSONArray jsonArray = jsonObject.getJSONArray("recordset");
 
@@ -290,6 +307,8 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
                     }
                     outputStream.close();
+                    break;
+                case "getFloor":
                     break;
 //                case "login":
 //                    for(int i = 0; i < jsonArray.length(); i++)
