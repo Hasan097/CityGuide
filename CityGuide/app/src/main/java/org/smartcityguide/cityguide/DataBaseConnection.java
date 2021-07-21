@@ -2,7 +2,11 @@ package org.smartcityguide.cityguide;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.Image;
 import android.os.AsyncTask;
+import android.util.Base64;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -13,6 +17,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -29,12 +34,15 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Scanner;
 
 public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
     private static final String TAG = "DatabaseLog";
     private String typeOfAction = "";
     private File subFolder;
+    private boolean getFloorFlag = false;
+    private boolean getBeaconsFlag = false;
 
     @SuppressLint("StaticFieldLeak")
     private
@@ -51,8 +59,8 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
         typeOfAction = params[0];
         String beaconid = params[1];
         String auth = params[2];
-        String namespace = params[3];
-        String locationName  = params[4];
+        String floorNum = params[3];
+
 
 
         switch (typeOfAction){
@@ -137,13 +145,32 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
 
             case "getFloor":
                 try {
-                    Log.d("baklava", "buildingInquiry: " + beaconid);
-                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
-                    String post_data = URLEncoder.encode("beaconid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                    Log.d("baklava", "getFloor: " + beaconid);
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/floor");
+                    String post_data = URLEncoder.encode("gid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("fno", "UTF-8")+"=" + URLEncoder.encode(floorNum.trim(), "UTF-8") + "&"
                             + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
 //                    String post_data = URLEncoder.encode("username", "UTF-8")+"=" + URLEncoder.encode(username, "UTF-8") + "&"
 //                            + URLEncoder.encode("password", "UTF-8")+"="+URLEncoder.encode(password, "UTF-8")+"&"
 //                            + URLEncoder.encode("locationName", "UTF-8")+"="+URLEncoder.encode(locationName, "UTF-8");
+                    getFloorFlag = true;
+                    return serverConnector(url,post_data);
+                    //here we need to return to the main activity
+
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "getBeacons":
+                try {
+                    Log.d("baklava", "getFloor: " + beaconid);
+                    URL url = new URL("http://wh-308-3922mm.dyn.wichita.edu:5000/beacon");
+                    String post_data = URLEncoder.encode("gid", "UTF-8")+"=" + URLEncoder.encode(beaconid.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("fno", "UTF-8")+"=" + URLEncoder.encode(floorNum.trim(), "UTF-8") + "&"
+                            + URLEncoder.encode("auth", "UTF-8")+"="+URLEncoder.encode(auth.trim(), "UTF-8");
+                    getBeaconsFlag = true;
                     return serverConnector(url,post_data);
                     //here we need to return to the main activity
 
@@ -176,23 +203,100 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
     }
 
     private String serverConnector(URL url,String post_data){
-            try {
+        if(getFloorFlag){
+            try{
                 HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
                 httpURLConnection.setRequestMethod("POST");
                 httpURLConnection.setDoOutput(true);
                 httpURLConnection.setDoInput(true);
                 OutputStream outputStream = new BufferedOutputStream(httpURLConnection.getOutputStream());
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream,"UTF-8"));
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
+
+                bufferedWriter.write(post_data);
+                bufferedWriter.flush();
+                bufferedWriter.close();
+                outputStream.close();
+
+                InputStream inputStream = (InputStream) httpURLConnection.getContent();
+                Bitmap bufferImage = BitmapFactory.decodeStream(inputStream);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bufferImage.compress(Bitmap.CompressFormat.PNG,100, baos);
+                byte [] b = baos.toByteArray();
+                String result = Base64.encodeToString(b, Base64.DEFAULT);
+
+
+                inputStream.close();
+                httpURLConnection.disconnect();
+                getFloorFlag = false;
+                return result;
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else if(getBeaconsFlag){
+            try{
+                HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setRequestMethod("POST");
+                httpURLConnection.setDoOutput(true);
+                httpURLConnection.setDoInput(true);
+                OutputStream outputStream = new BufferedOutputStream(httpURLConnection.getOutputStream());
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
 
                 bufferedWriter.write(post_data);
                 bufferedWriter.flush();
                 bufferedWriter.close();
                 outputStream.close();
                 InputStream inputStream = new BufferedInputStream(httpURLConnection.getInputStream());
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream,"iso-8859-1"));
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, "iso-8859-1"));
+
                 StringBuilder result = new StringBuilder();
                 String line;
-                while((line = bufferedReader.readLine())!=null){
+                boolean inputFlag = false;
+                while ((line = bufferedReader.readLine()) != null) {
+                    if(inputFlag)
+                        result.append(line);
+                    if(line.contains("cf0 ")) {
+                        inputFlag = true;
+                        result.append(line);
+                    }
+
+                }
+                String[] splitter = result.toString().split(" ");
+                result.delete(0,result.length());
+                line = splitter[splitter.length - 1];
+                result.append(line);
+                bufferedReader.close();
+                inputStream.close();
+                httpURLConnection.disconnect();
+
+                getBeaconsFlag = false;
+                return result.toString();
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else {
+            try {
+                HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setRequestMethod("POST");
+                httpURLConnection.setDoOutput(true);
+                httpURLConnection.setDoInput(true);
+                OutputStream outputStream = new BufferedOutputStream(httpURLConnection.getOutputStream());
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
+
+                bufferedWriter.write(post_data);
+                bufferedWriter.flush();
+                bufferedWriter.close();
+                outputStream.close();
+                InputStream inputStream = new BufferedInputStream(httpURLConnection.getInputStream());
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, "iso-8859-1"));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
                     result.append(line);
                 }
                 bufferedReader.close();
@@ -204,6 +308,7 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
         return null;
     }
 
@@ -227,8 +332,12 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
         ArrayList<HashMap<String,String>> informationList = new ArrayList<>();
         HashMap<String, String> information;
         try {
-            JSONObject jsonObject = new JSONObject(jsonStr);
-            JSONArray jsonArray = jsonObject.getJSONArray("recordset");
+            JSONObject jsonObject;
+            JSONArray jsonArray = null;
+            if(typeOfAction != "getFloor" && typeOfAction != "getBeacons"){
+                jsonObject = new JSONObject(jsonStr);
+                jsonArray = jsonObject.getJSONArray("recordset");
+            }
 
 
             switch(typeOfAction){
@@ -296,6 +405,10 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                                 String.valueOf(jsonArray.getJSONObject(i).getInt("beacon_id"))
                                 + ", "+
                                 jsonArray.getJSONObject(i).getString("locname")
+                                + ","+
+                                String.valueOf(jsonArray.getJSONObject(i).getString("_level"))
+                                + ","+
+                                String.valueOf(jsonArray.getJSONObject(i).getString("group_id"))
                         );
                         // write in file that was already created;
                         try {
@@ -308,7 +421,17 @@ public class DataBaseConnection extends AsyncTask<String, Void, String> {
                     }
                     outputStream.close();
                     break;
+                case "getBeacons":
+                    information = new HashMap<>();
+                    information.put("inquiryMode", "getBeacons");
+                    information.put("textFile", jsonStr);
+                    informationList.add(information);
+                    break;
                 case "getFloor":
+                    information = new HashMap<>();
+                    information.put("inquiryMode", "getFloor");
+                    information.put("image", jsonStr);
+                    informationList.add(information);
                     break;
 //                case "login":
 //                    for(int i = 0; i < jsonArray.length(); i++)

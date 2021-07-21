@@ -102,6 +102,10 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private double PROXIMITY_RADIUS;
     private int beacon_RSSI = -10000;
     private StringBuilder beacon_id = new StringBuilder();
+    private int floorNumber = -10;
+    private int prevFloorNumber = floorNumber;
+    private StringBuilder groupID = new StringBuilder();
+    private int prevGroupID = -1;
     private StringBuilder beacon_namespace = new StringBuilder("");
     private SpeakOut talk;
     private boolean speakFlag;
@@ -132,6 +136,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private int WMA_OPTION;
     private boolean explorationFlag = true, explorationFlagInitialization = false;
     private int exploredNode = -10;
+    private ArrayList<Integer> listOfBeacons = new ArrayList<>();
     private String loop_number = "-1000";
     private int desNumber;
     private int number_Of_Sensors=0;
@@ -434,7 +439,39 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 //        });
     }
 
+    private StringBuilder numberCorrection(StringBuilder userInput){
+        String correction = null;
+        if(userInput.toString().contains("one"))
+            correction = userInput.toString().replace("one", "1");
+        if(userInput.toString().contains("two"))
+            correction = userInput.toString().replace("two", "2");
+        if(userInput.toString().contains("three"))
+            correction = userInput.toString().replace("three", "3");
+        if(userInput.toString().contains("four"))
+            correction = userInput.toString().replace("four", "4");
+        if(userInput.toString().contains("five"))
+            correction = userInput.toString().replace("five", "5");
+        if(userInput.toString().contains("six"))
+            correction = userInput.toString().replace("six", "6");
+        if(userInput.toString().contains("seven"))
+            correction = userInput.toString().replace("seven", "7");
+        if(userInput.toString().contains("eight"))
+            correction = userInput.toString().replace("eight", "8");
+        if(userInput.toString().contains("nine"))
+            correction = userInput.toString().replace("nine", "9");
+        if(userInput.toString().contains("zero"))
+            correction = userInput.toString().replace("zero", "0");
+
+        if(correction != null) {
+            StringBuilder retrunSB = new StringBuilder(correction);
+            return retrunSB;
+        }
+
+        return userInput;
+    }
+
     private void searchingTime(final StringBuilder user_input) {
+        final StringBuilder userInput = numberCorrection(user_input);
 
         final Timer searchTimer = new Timer();
         if(!progressDialogFlag)
@@ -458,7 +495,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                  * */
                 if (newLocation != null && newLocation.getLatitude() != 0 && newLocation.getLongitude() != 0 && newLocation.getAccuracy() < GPS_ACCURACY && !searchingStatus[1]) {
                     String[] choice = new String[]{"locationInquiry", new HttpsLinkMaker().nearbyPlaces
-                            (user_input.toString(), new double[][]{{newLocation.getLatitude(), newLocation.getLongitude()}, {0, 0}}, (int) PROXIMITY_RADIUS, getString(R.string.google_maps_key))};
+                            (userInput.toString(), new double[][]{{newLocation.getLatitude(), newLocation.getLongitude()}, {0, 0}}, (int) PROXIMITY_RADIUS, getString(R.string.google_maps_key))};
                     try {
                         outdoorLocations = new LocationInquiry().execute(choice).get();
                     } catch (InterruptedException | ExecutionException e) {
@@ -475,8 +512,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     if (buildings_info.length > 0) {
                         for (int i = 0; i < buildings_info.length; i++) {
                             if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
-                                if (buildings_info[i][1].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase()) ||
-                                        buildings_info[i][2].toString().toLowerCase().trim().equals(user_input.toString().trim().toLowerCase())) {
+                                if (buildings_info[i][1].toString().toLowerCase().trim().equals(userInput.toString().trim().toLowerCase()) ||
+                                        buildings_info[i][2].toString().toLowerCase().trim().equals(userInput.toString().trim().toLowerCase())) {
                                     HashMap<String, String> data = new HashMap<>();
                                     data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
                                     data.put("loop_number", String.valueOf(i));
@@ -489,8 +526,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         if (!firstFlag) {
                             for (int i = 0; i < buildings_info.length; i++) {
                                 if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
-                                    if ((buildings_info[i][1].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()) ||
-                                            buildings_info[i][2].toString().toLowerCase().trim().contains(user_input.toString().trim().toLowerCase()))) {
+                                    if ((buildings_info[i][1].toString().toLowerCase().trim().contains(userInput.toString().trim().toLowerCase()) ||
+                                            buildings_info[i][2].toString().toLowerCase().trim().contains(userInput.toString().trim().toLowerCase()))) {
                                         HashMap<String, String> data = new HashMap<>();
                                         data.put("description", buildings_info[i][1].toString().trim().toLowerCase());
                                         data.put("loop_number", String.valueOf(i));
@@ -502,7 +539,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                             }
                         }
                         if (!secondFlag && !firstFlag) {
-                            String strTemp[] = user_input.toString().trim().toLowerCase().replace("#", "").split(" ");
+                            String strTemp[] = userInput.toString().trim().toLowerCase().replace("#", "").split(" ");
                             for (int i = 0; i < buildings_info.length; i++) {
                                 for (int j = 0; j < strTemp.length; j++) {
                                     if (buildings_info[i][1] != null || buildings_info[i][2] != null) {
@@ -535,7 +572,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     if (!searchingStatus[3] && !searchingStatus[4]) {
                         searchTimer.cancel();
                         searchTimer.purge();
-                        dialogBoxCreator("No signal! Do you want to wait for another " + WAITING_TIME + " seconds?", user_input);
+                        dialogBoxCreator("No signal! Do you want to wait for another " + WAITING_TIME + " seconds?", userInput);
 
                     } else {
                         setIndoorLocationsToGo(indoorLocations);
@@ -572,9 +609,14 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         listViewToShow(getIndoorLocationsToGo(), 2, 10);
                     }
                     else {
-                        talk.start("Please choose one of the options from indoor locations, " +
-                                "They are as follows, " + sentence);
+                        talk.start("Please choose one of the options from the listed indoor locations.");
                         listViewToShow(getIndoorLocationsToGo(), 2, 10);
+                        if(indoorWayfindingFlag){
+                            indoorWayfindingFlag = false;
+                            indoorInitialization = false;
+                            current = -1;
+                            number_Of_Sensors = 0;
+                        }
                     }
                 } else if (!searchingStatus[2] && searchingStatus[1]) {
                     talk.start("Please choose one of the options from outdoor locations!");
@@ -641,30 +683,51 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         beacon_namespace = beaconNameSpace;
         Log.d("beans","beaconid: " + beacon_id + "rssi: " + beacon_RSSI);
         if (!beacon_download_flag) {
-            loginFunc("beacons", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
+            if(!listOfBeacons.contains(Integer.parseInt(beaconID.toString()))) {
+                listOfBeacons.add(Integer.parseInt(beaconID.toString()));
+                loginFunc("beacons", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), "");
+                loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), "");
+                if(inquiry_flag)
+                    inquiry_flag = false;
+            }
 //        else if (beacon_location.toString().compareTo("outdoor") == 0 && inquiry_flag) {
 //            loginFunc("outdoorInquiry", new StringBuilder("admin"), new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_namespace.toString().toLowerCase().trim());
 //            inquiry_flag = false;
 //
         }
-        else if (inquiry_flag && beacon_location.toString().compareTo("outdoor") != 0) {
-            for(int i = 0; i < beacons_array.size() ; i++){
-                if(beacons_array.get(i).containsKey(Integer.parseInt(String.valueOf(beacon_id)))) {
-                    loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_location.toString());
-                    beacons_array.remove(i);
-                }
-                else
-                    inquiry_counter++;
-            }
-            if(inquiry_counter > 10) {
-                inquiry_flag = false;
-            }
+//
+//        if (inquiry_flag && beacon_location.toString().compareTo("outdoor") != 0) {
+//            for(int i = 0; i < beacons_array.size() ; i++){
+//                if(beacons_array.get(i).containsKey(0)) {
+//                    loginFunc("buildingInquiry", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, beacon_location.toString());
+//                    beacons_array.remove(i);
+//                    Toast.makeText(getApplicationContext(),"Retrieved Beacon values of: " + beacon_id.toString(), Toast.LENGTH_SHORT);
+//                }
+//                else
+//                    inquiry_counter++;
+//            }
+//            if(inquiry_counter > 20) {
+//                inquiry_flag = false;
+//                inquiry_counter = 0;
+//            }
+//        }
+
+        if(beacon_download_flag == true && floorNumber != prevFloorNumber && prevGroupID != Integer.parseInt(groupID.toString())){
+            loginFunc("getFloor", groupID, new StringBuilder("eW7jYaEz7mnx0rrM"), String.valueOf(floorNumber));
+            loginFunc("getBeacons", groupID, new StringBuilder("eW7jYaEz7mnx0rrM"), String.valueOf(floorNumber));
+            prevFloorNumber = floorNumber;
+            listOfBeacons.clear();
+            prevGroupID = Integer.parseInt(groupID.toString());
         }
 
-        if(floorPlanFlag == true){
-            loginFunc("getFloor", beacon_id, new StringBuilder("eW7jYaEz7mnx0rrM"), beacon_namespace, "");
-            floorPlanFlag = false;
-        }
+        if(inquiry_flag)
+            beacon_download_flag = false;
+
+//        if(inquiry_flag && floorNumber != prevFloorNumber){
+//            if(!listOfBeacons.contains(Integer.parseInt(beacon_id.toString()))) {
+//
+//            }
+//        }
 
         lastReceivedTimeStamp = System.currentTimeMillis();
 
@@ -673,7 +736,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     for (int i = 0; i < buildings_info.length; i++) {
                         if (buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()).equals(Integer.valueOf(beacon_id.toString()))) {
                             beaconNumber = connections[i][0];
-                            if (explorationFlag && !inquiry_flag && beacon_download_flag && !EVACUATION_FLAG) {
+                            if (explorationFlag && inquiry_flag && !beacon_download_flag &&!EVACUATION_FLAG) {
                                 explorationMode();
                             }
                         }
@@ -810,7 +873,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void explorationMode() {
-
+        int currentBeacon = -1;
+        int prevBeacon = -1;
         if (!explorationFlagInitialization) {
             nodeDeciderArray = new int[Integer.valueOf(buildings_info[Integer.valueOf(beaconNumber)][3].toString())][WMA_OPTION + 1];
             weightedAverage = new double[Integer.valueOf(buildings_info[Integer.valueOf(beaconNumber)][3].toString())];
@@ -843,6 +907,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     if (exploredNode != beaconNumber) {
                         exploredNode = beaconNumber;
                         speakOut("Very close to " + buildingSensorsMap[exploredNode][0]);
+                        if(currentBeacon != beaconNumber)
+                            currentBeacon = beaconNumber;
                         fragmentSighted.xyToDraw(beaconNumber, xy, buildings_info[exploredNode][2].toString(),getRouteSrcDst());
                     }
                 }
@@ -853,6 +919,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     @SuppressLint("UseSparseArrays")
     private void readFile() {
         HashMap<Integer, StringBuilder> beacons_array_Hash;
+        StringBuilder flrno = new StringBuilder();
+        StringBuilder gid = new StringBuilder();
         File file = new File(this.getFilesDir().getAbsolutePath() + File.separator + "BeaconData", "beacons");
         String lineReader;
         BufferedReader br;
@@ -865,6 +933,10 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                 String[] splitter = lineReader.split(",");
                 beacons_array_Hash = new HashMap<>();
                 beacons_array_Hash.put(Integer.valueOf(splitter[0]), new StringBuilder(splitter[1]));
+                if(splitter.length > 2) {
+                    flrno = new StringBuilder(splitter[2]);
+                    gid = new StringBuilder(splitter[3]);
+                }
                 if(beacons_array.size() == 0){
                     beacons_array.add(beacons_array_Hash);
                 }
@@ -873,9 +945,9 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         if (beacons_array.get(i).keySet().equals(beacons_array_Hash.keySet())) {
                             checker = 1;
                         }
-                        if(checker == 1 && i == (beacons_array.size() - 1)){
-                            stop_multiple++;
-                        }
+//                        if(checker == 1 && i == (beacons_array.size() - 1)){
+//                            stop_multiple++;
+//                        }
                     }
                     if(checker == 0){
                         beacons_array.add(beacons_array_Hash);
@@ -896,11 +968,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
         beacon_location = new StringBuilder(beacon_location.toString().trim().toLowerCase());
 
-        if(stop_multiple > 7)
+        if(floorNumber != Integer.parseInt(flrno.toString())){
+            floorNumber = Integer.parseInt(flrno.toString());
+            groupID = gid;
             beacon_download_flag = true;
+        }
 
-        inquiry_flag = true;
-
+//        if(stop_multiple > 50) {
+//            beacon_download_flag = true;
+//        }
     }
 
     private void indoorWayfinding() {
@@ -1113,13 +1189,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             }
         }
 
-        if(current != -1) {
-            if (current != prev){
-                floorPlanFlag = true;
-                prev = current;
-            }
-        }
-
         if (reachFlag) {
             indoorWayfindingFlag=false;
             indoorInitialization=false;
@@ -1166,6 +1235,33 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         if (serverInquiryResult.size() > 0) {
             switch (serverInquiryResult.get(0).get("inquiryMode")) {
                 case "outdoorInquiry":
+                    break;
+                case "getFloor":
+                    myFrame.removeAllViews();
+                    String imageStr = serverInquiryResult.get(0).get("image");
+
+                    myFrame.removeAllViews();
+                    FragmentManager fragmentSightedManager  = getSupportFragmentManager();
+                    SightedFragment fragmentSighted  = new SightedFragment();
+                    FragmentTransaction fragmentSightedTransaction;
+                    fragmentSightedTransaction = fragmentSightedManager.beginTransaction();
+                    fragmentSightedTransaction.replace(R.id.frame, fragmentSighted);
+                    fragmentSightedTransaction.commit();
+
+                    fragmentSighted.setFloorMap(imageStr, getApplicationContext(), getRouteSrcDst());
+                    break;
+                case "getBeacons":
+                    String string = serverInquiryResult.get(0).get("textFile");
+                    string = string.replaceAll("\\\\",",");
+                    string = string.replace(",}","");
+                    String [] splitter = string.split(",");
+                    for(int i = 0; i < splitter.length; i++)
+                        if(!listOfBeacons.contains(Integer.parseInt(splitter[i]))) {
+                            listOfBeacons.add(Integer.parseInt(splitter[i]));
+                            StringBuilder newBeacon = new StringBuilder(splitter[i]);
+                            loginFunc("buildingInquiry", newBeacon, new StringBuilder("eW7jYaEz7mnx0rrM"), "");
+                        }
+                    inquiry_flag = true;
                     break;
                 case "buildingInquiry":
                     if(buildingSensorsMap == null)
@@ -1404,9 +1500,9 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
         }
 
     private void loginFunc(String typeOfAction, StringBuilder uName, StringBuilder pass,
-                           StringBuilder namespace, String locationName) {
+                           String floor_no) {
         DataBaseConnection dataBaseConnection = new DataBaseConnection(this);
-        dataBaseConnection.execute(typeOfAction, uName.toString(), pass.toString(), namespace.toString().toLowerCase(), locationName);
+        dataBaseConnection.execute(typeOfAction, uName.toString(), pass.toString(), floor_no);
     }
 
     private void sightedActivity(){

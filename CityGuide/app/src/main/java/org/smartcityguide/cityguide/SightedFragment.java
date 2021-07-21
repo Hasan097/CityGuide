@@ -20,6 +20,8 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.core.view.MotionEventCompat;
 
+import android.util.Base64;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -47,7 +49,7 @@ public class SightedFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         if (view == null) {
-            view = new Layout(getContext());
+            view = new Layout(getContext(), null);
         }
 
         final GestureDetector.SimpleOnGestureListener listener = new GestureDetector.SimpleOnGestureListener() {
@@ -95,17 +97,18 @@ public class SightedFragment extends Fragment {
         Bitmap scaledBitmap;
         Path LineToDraw;
         Float scale = 1f;
-        int imgHeight;
-        int imgWidth;
         float xMy = 0f,yMy = 0f;
         float strX = 0f,strY = 0f;
         float endX = 0f, endY= 0f;
 
 
-        public Layout(Context context) {
+        public Layout(Context context, Bitmap bitmap) {
             super(context);
             setBackgroundResource(R.color.colorWhite);
-            scaledBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.wallace_3rd_flr);
+            if(bitmap == null)
+                scaledBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.default_grid);
+            else
+                scaledBitmap = bitmap;
             SGD = new ScaleGestureDetector(getContext(), new Layout.ScaleListener());
             setWillNotDraw(false);
         }
@@ -160,7 +163,6 @@ public class SightedFragment extends Fragment {
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
-            getImageDimention();
             if(moveFlag){
                 x = x - difX;
                 y = y - difY;
@@ -169,22 +171,35 @@ public class SightedFragment extends Fragment {
 
             int screenWidth = this.getWidth();
             int screenHeight = this.getHeight();
+            if(screenHeight % 100 != 00){
+                screenHeight = screenHeight - (screenHeight % 100);
+            }
+            if(screenWidth % 100 != 00){
+                screenWidth = screenWidth - (screenWidth % 100);
+            }
 
             int bitmapWidth = scaledBitmap.getWidth();
             int bitmapHeight = scaledBitmap.getHeight();
-
-            float screenRatio = (float)screenWidth/(float)screenHeight;
-            float bitmapRatio = (float)bitmapWidth/(float)bitmapHeight;
-
             int finalWidth = bitmapWidth;
             int finalHeight = bitmapHeight;
 
-            if(screenRatio > bitmapRatio){
-                finalWidth = (int)((float)screenHeight * bitmapRatio);
+            if(Math.abs(screenHeight - bitmapHeight) > Math.abs(screenWidth - bitmapWidth))
+                finalHeight = screenHeight;
+            else
+                finalWidth = screenWidth;
+
+            float bitmapRatio = (float)bitmapWidth/(float)bitmapHeight;
+
+            if (finalHeight != bitmapHeight) {
+                finalWidth = (int) ((float) finalHeight * bitmapRatio);
+            } else if(finalWidth != bitmapWidth) {
+                finalHeight = (int) ((float) finalWidth / bitmapRatio);
             }
-            else{
-                finalHeight = (int)((float)screenWidth / bitmapRatio);
-            }
+
+            float finalRatio = (float)finalWidth/(float)finalHeight;
+            if(finalRatio == bitmapRatio)
+                Log.d("something", "onDraw: ");
+
 
             canvas.drawBitmap(Bitmap.createScaledBitmap(scaledBitmap, Math.round(finalWidth*scale),Math.round((finalHeight-getStatusBarHeight())*scale), false),x*scale,y*scale,null);
 
@@ -242,19 +257,55 @@ public class SightedFragment extends Fragment {
             }
             return result;
         }
-
-        public void getImageDimention(){
-            BitmapFactory.Options dimensions = new BitmapFactory.Options();
-            dimensions.inJustDecodeBounds = true;
-            BitmapFactory.decodeResource(getResources(), R.drawable.wallace_3rd_flr,dimensions);
-            imgHeight = dimensions.outHeight;
-            imgWidth =  dimensions.outWidth;
-        }
-
     }
 
-    public void setFloorMap(int beaconID){
+    public View setFloorMap(String image, Context context, String getRouteSrcDst){
         // here we set the floor plan
+        try{
+            byte [] encodeByte = Base64.decode(image, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
+
+            view = new Layout(context,bitmap);
+            final GestureDetector.SimpleOnGestureListener listener = new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(MotionEvent e) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        textToSpeech.speak(extraInformationToSay, TextToSpeech.QUEUE_FLUSH, null, null);
+                    } else {
+                        textToSpeech.speak(extraInformationToSay, TextToSpeech.QUEUE_FLUSH, null);
+                    }
+                    return true;
+                }
+            };
+
+            final GestureDetector detector = new GestureDetector(listener);
+
+            detector.setOnDoubleTapListener(listener);
+            view.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent motionEvent) {
+                    return detector.onTouchEvent(motionEvent);
+                }
+            });
+
+//            textToSpeech = new TextToSpeech(context, new TextToSpeech.OnInitListener() {
+//                @Override
+//                public void onInit(int status) {
+//                    if (status == TextToSpeech.SUCCESS) {
+//                        int result = textToSpeech.setLanguage(Locale.US);
+//                        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+//                            Toast.makeText(getContext(), "Text to Speech not Supported!", Toast.LENGTH_SHORT).show();
+//                        }
+//                    }
+//                }
+//            });
+            path = getRouteSrcDst.split(",");
+            return view;
+        }
+        catch(Exception e){
+            e.getMessage();
+        }
+        return null;
     }
 
     public void xyToDraw(int nodeNumber, int xy[][], String extraInformationToSay, String getRouteSrcDst){
