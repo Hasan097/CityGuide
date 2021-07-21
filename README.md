@@ -4,14 +4,16 @@
 The genral work flow of the app is as follows:
 1. App detects a beacons and its values i.e. Beacon ID, RSSI, etc.
 2. The app reports the beacon ID to the server and then recieves the details of that beacon from the server
-3. To avoid repetitiveness, each unique details are checked and written to a file within the app
-4. Once all detected beacons are accounted for the app then reads the values of the listed beacons from the file
-5. The beacon values are put in a number of variables to form a matrix which will be used for path finding
-6. The matrix takes very little time to configure and once configured the user can ask the app for navigation
-7. The user inputs the lable of their destination into the app and the app starts its path finding process
-8. Once its found the best route the app then speaks to the user using TTS commands and guides them to the destination
-9. Each beacon has a threshold which the app detects to make sure if it is within the beacons range
-10. Once the destination is reached a destination flag is set and the app acknowledge and informs the user
+3. Details are checked and written to a file within the app
+4. Group ID and Floor Number of that beacon is recorded and maintained till new values are detected
+5. The app makes a call to the server to get a list of all beacons blonging to that Group ID
+6. Once the app recieves the list, it calls the server for details of each listed beacons
+7. The beacon values are put in a number of variables to form a matrix which will be used for path finding
+8. The matrix takes very little time to configure and once configured the user can ask the app for navigation
+9. The user inputs the lable of their destination into the app and the app starts its path finding process
+10. Once its found the best route the app then speaks to the user using TTS commands and guides them to the destination
+11. Each beacon has a threshold which the app detects to make sure if it is within the beacons range
+12. Once the destination is reached a destination flag is set and the app acknowledge and informs the user
 
 ## Beacon Data
 NOTE: Any variable that is -10 is assumed to be a null value  
