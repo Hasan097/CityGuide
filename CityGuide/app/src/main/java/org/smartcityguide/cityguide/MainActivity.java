@@ -114,11 +114,15 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<HashMap<Integer, StringBuilder>>();
     private StringBuilder beacon_location = new StringBuilder();
     private boolean beacon_download_flag = false;
+    ArrayList<Integer> Cluster = new ArrayList<>();
     private int stop_multiple = 0;
     private int inquiry_counter = 0;
     private RoutFinding rf = new RoutFinding();
     private String routeSrcDst;
     private TextToSpeech textToSpeech=null;
+    private int clusterCounter = 0;
+    private boolean isBeaconInRangeFlag = false;
+    private int currentExploredBeaconCluster = -1;
     private int toggleBtnVar = 0;
     private int beaconNumber;
     private double[][][] mapDetails;
@@ -610,6 +614,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     }
                     else {
                         talk.start("Please choose one of the options from the listed indoor locations.");
+                        isBeaconInRangeFlag = true;
                         listViewToShow(getIndoorLocationsToGo(), 2, 10);
                         if(indoorWayfindingFlag){
                             indoorWayfindingFlag = false;
@@ -733,6 +738,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
             if (buildings_info != null) {
                 if (buildings_info.length > 0) {
+                    clusterCheck();
                     for (int i = 0; i < buildings_info.length; i++) {
                         if (buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()).equals(Integer.valueOf(beacon_id.toString()))) {
                             beaconNumber = connections[i][0];
@@ -748,6 +754,22 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
             }
         if(EVACUATION_FLAG){
             evacuationMode();
+        }
+    }
+
+    private void clusterCheck(){
+        int beacon = -1;
+        String locname = "#$%%#$%#$%";
+        for(int i = 1; i < buildings_info.length; i++){
+            if(buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()) != beacon) {
+                beacon = Integer.valueOf(buildings_info[i][0].toString());
+                locname = buildings_info[i][1].toString();
+            }
+            else if(buildings_info[i][0] != null && !locname.equals(buildings_info[i][1].toString())) {
+                locname = buildings_info[i][1].toString();
+                if(!Cluster.contains(beacon))
+                    Cluster.add(beacon);
+            }
         }
     }
 
@@ -873,8 +895,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     }
 
     private void explorationMode() {
-        int currentBeacon = -1;
-        int prevBeacon = -1;
         if (!explorationFlagInitialization) {
             nodeDeciderArray = new int[Integer.valueOf(buildings_info[Integer.valueOf(beaconNumber)][3].toString())][WMA_OPTION + 1];
             weightedAverage = new double[Integer.valueOf(buildings_info[Integer.valueOf(beaconNumber)][3].toString())];
@@ -906,9 +926,14 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         (int) weightedAverage[beaconNumber] != 0 && triggerCounter > 2) {
                     if (exploredNode != beaconNumber) {
                         exploredNode = beaconNumber;
-                        speakOut("Very close to " + buildingSensorsMap[exploredNode][0]);
-                        if(currentBeacon != beaconNumber)
-                            currentBeacon = beaconNumber;
+                        if(Cluster.contains(Integer.valueOf(buildings_info[exploredNode][0].toString())) &&
+                                currentExploredBeaconCluster != Integer.valueOf(buildings_info[exploredNode][0].toString())) {
+                            speakOut("Multiple points of interest near your location.");
+                            currentExploredBeaconCluster = Integer.valueOf(buildings_info[exploredNode][0].toString());
+                        }
+                        else if(!Cluster.contains(Integer.valueOf(buildings_info[exploredNode][0].toString())))
+                            speakOut("Very close to " + buildingSensorsMap[exploredNode][0]);
+                        Log.d("CloseTo", "Close to: " + buildingSensorsMap[exploredNode][0]);
                         fragmentSighted.xyToDraw(beaconNumber, xy, buildings_info[exploredNode][2].toString(),getRouteSrcDst());
                     }
                 }
@@ -1254,6 +1279,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                     String string = serverInquiryResult.get(0).get("textFile");
                     string = string.replaceAll("\\\\",",");
                     string = string.replace(",}","");
+                    string = string.replace("}","");
                     String [] splitter = string.split(",");
                     for(int i = 0; i < splitter.length; i++)
                         if(!listOfBeacons.contains(Integer.parseInt(splitter[i]))) {
@@ -1641,6 +1667,8 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
     private void hideProgressDialog() {
         progressDialogFlag=false;
+        if(!talk.isItSpeaking() && isBeaconInRangeFlag)
+            speakOut("Search completed. Please move closer to a recognizable beacon.");
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
