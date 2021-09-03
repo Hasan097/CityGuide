@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private ArrayList<HashMap<Integer, StringBuilder>> beacons_array = new ArrayList<HashMap<Integer, StringBuilder>>();
     private StringBuilder beacon_location = new StringBuilder();
     private boolean beacon_download_flag = false;
-    ArrayList<Integer> Cluster = new ArrayList<>();
+    HashMap<Integer,ArrayList<String>> clusterLocations = new HashMap<Integer,ArrayList<String>>();
     private int stop_multiple = 0;
     private int inquiry_counter = 0;
     private RoutFinding rf = new RoutFinding();
@@ -166,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private boolean EVACUATION_FLAG = false;
     private int frgno = 2;
     private FrameLayout myFrame;
-    private int xy[][] = new int[40][2];
+    private int xy[][] = new int[50][2];
     private FragmentTransaction fragmentBlindTransaction;
     private FragmentTransaction fragmentSightedTransaction;
     private FragmentManager fragmentManager  = getSupportFragmentManager();
@@ -738,7 +738,6 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
 
             if (buildings_info != null) {
                 if (buildings_info.length > 0) {
-                    clusterCheck();
                     for (int i = 0; i < buildings_info.length; i++) {
                         if (buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()).equals(Integer.valueOf(beacon_id.toString()))) {
                             beaconNumber = connections[i][0];
@@ -760,15 +759,19 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
     private void clusterCheck(){
         int beacon = -1;
         String locname = "#$%%#$%#$%";
+        ArrayList<String> Locations = new ArrayList<>();
         for(int i = 1; i < buildings_info.length; i++){
             if(buildings_info[i][0] != null && Integer.valueOf(buildings_info[i][0].toString()) != beacon) {
                 beacon = Integer.valueOf(buildings_info[i][0].toString());
                 locname = buildings_info[i][1].toString();
+                Locations.clear();
             }
             else if(buildings_info[i][0] != null && !locname.equals(buildings_info[i][1].toString())) {
+                if(!Locations.contains(locname))
+                    Locations.add(locname);
                 locname = buildings_info[i][1].toString();
-                if(!Cluster.contains(beacon))
-                    Cluster.add(beacon);
+                Locations.add(locname);
+                clusterLocations.put(beacon,Locations);
             }
         }
     }
@@ -926,12 +929,13 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                         (int) weightedAverage[beaconNumber] != 0 && triggerCounter > 2) {
                     if (exploredNode != beaconNumber) {
                         exploredNode = beaconNumber;
-                        if(Cluster.contains(Integer.valueOf(buildings_info[exploredNode][0].toString())) &&
+                        if(clusterLocations.containsKey(Integer.valueOf(buildings_info[exploredNode][0].toString())) &&
                                 currentExploredBeaconCluster != Integer.valueOf(buildings_info[exploredNode][0].toString())) {
-                            speakOut("Multiple points of interest near your location.");
+                            speakOut("Multiple points of interest near your location. They are as follows: " +
+                                clusterLocations.get(Integer.valueOf(buildings_info[exploredNode][0].toString())).toString());
                             currentExploredBeaconCluster = Integer.valueOf(buildings_info[exploredNode][0].toString());
                         }
-                        else if(!Cluster.contains(Integer.valueOf(buildings_info[exploredNode][0].toString())))
+                        else if(!clusterLocations.containsKey(Integer.valueOf(buildings_info[exploredNode][0].toString())))
                             speakOut("Very close to " + buildingSensorsMap[exploredNode][0]);
                         Log.d("CloseTo", "Close to: " + buildingSensorsMap[exploredNode][0]);
                         fragmentSighted.xyToDraw(beaconNumber, xy, buildings_info[exploredNode][2].toString(),getRouteSrcDst());
@@ -1288,6 +1292,7 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse, Re
                             loginFunc("buildingInquiry", newBeacon, new StringBuilder("eW7jYaEz7mnx0rrM"), "");
                         }
                     inquiry_flag = true;
+                    clusterCheck();
                     break;
                 case "buildingInquiry":
                     if(buildingSensorsMap == null)
